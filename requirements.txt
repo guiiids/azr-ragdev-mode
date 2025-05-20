@@ -44,8 +44,6 @@ jsonschema==4.23.0
 jsonschema-specifications==2024.10.1
 Kivy==2.3.1
 Kivy-Garden==0.1.5
-# Editable install with no version control (llm-safe==0.1.0)
--e /Users/vieirama/Desktop/llm_safe_snapshot_generator
 lxml==5.3.2
 markdown-it-py==3.0.0
 markdown2==2.5.3
