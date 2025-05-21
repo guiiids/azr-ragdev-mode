@@ -1,5 +1,5 @@
 import json
-from flask_rag_assistant import FlaskRAGAssistant
+from rag_assistant import FlaskRAGAssistant
 
 DEFAULT_SUMMARY_PROMPT = """
 You are an expert LLM analyst. Given the following results from one or more batches of LLM runs (with different parameters), provide:

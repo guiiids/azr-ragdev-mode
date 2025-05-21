@@ -3,9 +3,10 @@ import traceback
 import json
 from rag_assistant import FlaskRAGAssistant
 
-# Try to import the summary module if present
+# Try to import the summary modules if present
 try:
     from llm_summary import summarize_results, developer_evaluate_job
+    from llm_summary_compact import summarize_batch_comparison
     HAS_SUMMARY = True
 except ImportError:
     HAS_SUMMARY = False
@@ -62,9 +63,18 @@ def run_batch(query, system_prompt, params, logger, batch_label="batch"):
             answer, sources, _, evaluation, context = assistant.generate_rag_response(query)
             logger.info(f"{batch_label} Run {i+1}: Answer: {answer!r}")
             logger.info(f"{batch_label} Run {i+1}: Sources: {sources!r}")
-            print(f"\n{batch_label} Run {i+1}:")
-            print(f"Answer: {answer}")
-            print(f"Sources: {sources}")
+            # Display response in a more readable format
+            print(f"\n{'='*80}")
+            print(f"  {batch_label.upper()} RUN {i+1}")
+            print(f"{'='*80}")
+            print(f"\n📝 ANSWER:\n")
+            print(f"{answer}")
+            
+            if sources:
+                print(f"\n📚 SOURCES:\n")
+                for idx, source in enumerate(sources, 1):
+                    print(f"  [{idx}] {source.get('title', 'Untitled')}")
+            print(f"\n{'-'*80}")
             results.append({
                 "run": i+1,
                 "answer": answer,
@@ -82,7 +92,7 @@ def run_batch(query, system_prompt, params, logger, batch_label="batch"):
             })
     return results
 
-def offer_summary(results, json_file=None):
+def offer_summary(results, json_file=None, is_comparison=False):
     if not HAS_SUMMARY:
         print("\n[LLM Summary module not available. Skipping summary generation.]")
         return
@@ -91,11 +101,104 @@ def offer_summary(results, json_file=None):
         return
     print("\nGenerating LLM summary report (this may take a moment)...")
     try:
-        summary = summarize_results(results)
+        # Use compact summary for comparison mode
+        if is_comparison:
+            summary = summarize_batch_comparison(results)
+        else:
+            summary = summarize_results(results)
+            
         print("\n=== LLM Summary Report ===\n")
         print(summary)
+        
+        # Save summary to separate report file
+        save_report = input("\nSave LLM summary report to a separate file? (y/n, default y): ").strip().lower() or "y"
+        if save_report == "y":
+            report_format = input("Choose format (md/txt, default md): ").strip().lower() or "md"
+            if report_format not in ["md", "txt"]:
+                report_format = "md"
+                
+            # Create reports directory if it doesn't exist
+            import os
+            reports_dir = "reports"
+            if not os.path.exists(reports_dir):
+                os.makedirs(reports_dir)
+                print(f"\nCreated directory: {reports_dir}")
+            
+            # Generate report filename
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            if is_comparison:
+                report_filename = os.path.join(reports_dir, f"comparison_report_{timestamp}.{report_format}")
+            else:
+                report_filename = os.path.join(reports_dir, f"batch_report_{timestamp}.{report_format}")
+                
+            # Create report content
+            if report_format == "md":
+                report_content = f"# LLM Summary Report\n\n"
+                report_content += f"*Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n"
+                
+                # Add query information
+                report_content += f"## Query\n\n"
+                report_content += f"`{results.get('query', 'No query provided')}`\n\n"
+                
+                # Add batch information for comparison mode
+                if is_comparison:
+                    batch1 = results.get("batch_1", {})
+                    batch2 = results.get("batch_2", {})
+                    
+                    report_content += f"## Batch 1 Parameters\n\n"
+                    batch1_params = batch1.get("parameters", {})
+                    report_content += f"- Temperature: {batch1_params.get('temperature', 'N/A')}\n"
+                    report_content += f"- Top P: {batch1_params.get('top_p', 'N/A')}\n"
+                    report_content += f"- Max Tokens: {batch1_params.get('max_tokens', 'N/A')}\n"
+                    report_content += f"- System Prompt: `{batch1.get('system_prompt', batch1_params.get('system_prompt', 'Default'))}`\n\n"
+                    
+                    report_content += f"## Batch 2 Parameters\n\n"
+                    batch2_params = batch2.get("parameters", {})
+                    report_content += f"- Temperature: {batch2_params.get('temperature', 'N/A')}\n"
+                    report_content += f"- Top P: {batch2_params.get('top_p', 'N/A')}\n"
+                    report_content += f"- Max Tokens: {batch2_params.get('max_tokens', 'N/A')}\n"
+                    report_content += f"- System Prompt: `{batch2.get('system_prompt', batch2_params.get('system_prompt', 'Default'))}`\n\n"
+                
+                # Add summary
+                report_content += f"## Analysis\n\n{summary}\n"
+            else:
+                # Plain text format
+                report_content = f"LLM SUMMARY REPORT\n\n"
+                report_content += f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                report_content += f"QUERY: {results.get('query', 'No query provided')}\n\n"
+                
+                if is_comparison:
+                    batch1 = results.get("batch_1", {})
+                    batch2 = results.get("batch_2", {})
+                    
+                    report_content += f"BATCH 1 PARAMETERS:\n"
+                    batch1_params = batch1.get("parameters", {})
+                    report_content += f"- Temperature: {batch1_params.get('temperature', 'N/A')}\n"
+                    report_content += f"- Top P: {batch1_params.get('top_p', 'N/A')}\n"
+                    report_content += f"- Max Tokens: {batch1_params.get('max_tokens', 'N/A')}\n"
+                    report_content += f"- System Prompt: {batch1.get('system_prompt', batch1_params.get('system_prompt', 'Default'))}\n\n"
+                    
+                    report_content += f"BATCH 2 PARAMETERS:\n"
+                    batch2_params = batch2.get("parameters", {})
+                    report_content += f"- Temperature: {batch2_params.get('temperature', 'N/A')}\n"
+                    report_content += f"- Top P: {batch2_params.get('top_p', 'N/A')}\n"
+                    report_content += f"- Max Tokens: {batch2_params.get('max_tokens', 'N/A')}\n"
+                    report_content += f"- System Prompt: {batch2.get('system_prompt', batch2_params.get('system_prompt', 'Default'))}\n\n"
+                
+                report_content += f"ANALYSIS:\n\n{summary}\n"
+            
+            # Save the report
+            try:
+                with open(report_filename, "w", encoding="utf-8") as f:
+                    f.write(report_content)
+                print(f"\nLLM summary report saved to: {report_filename}")
+            except Exception as e:
+                print(f"Failed to save report to {report_filename}: {e}")
+        
+        # Also save summary alongside results in JSON if provided
         if json_file:
-            # Save summary alongside results
             try:
                 with open(json_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -106,7 +209,7 @@ def offer_summary(results, json_file=None):
                     data["llm_summary"] = summary
                 with open(json_file, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2, ensure_ascii=False)
-                print(f"\nSummary appended to {json_file}")
+                print(f"\nSummary also appended to {json_file}")
             except Exception as e:
                 print(f"Could not append summary to {json_file}: {e}")
     except Exception as e:
@@ -147,9 +250,18 @@ def main():
         try:
             logger.info(f"Mode 0: Query: {query!r}")
             answer, sources, _, evaluation, context = assistant.generate_rag_response(query)
-            print("\n=== LLM Output ===\n")
-            print(answer)
-            print("\nSources:", sources)
+            # Display response in a more readable format
+            print(f"\n{'='*80}")
+            print(f"  DEVELOPER EVALUATION OUTPUT")
+            print(f"{'='*80}")
+            print(f"\n📝 ANSWER:\n")
+            print(f"{answer}")
+            
+            if sources:
+                print(f"\n📚 SOURCES:\n")
+                for idx, source in enumerate(sources, 1):
+                    print(f"  [{idx}] {source.get('title', 'Untitled')}")
+            print(f"\n{'-'*80}")
             # Developer evaluation
             if HAS_SUMMARY:
                 print("\n=== Developer Evaluation (LLM Suggestions) ===\n")
@@ -188,23 +300,24 @@ def main():
     elif mode == "2":
         # Shared input
         query = input("Enter your query: ").strip()
-        system_prompt = input("Enter system prompt/instructions (or leave blank for default): ").strip()
-
+        
         # Batch 1 params
         print("\n--- Batch 1 parameters ---")
+        system_prompt1 = input("Enter system prompt/instructions for Batch 1 (or leave blank for default): ").strip()
         temp1 = get_float("Set temperature (0.0-2.0)", 0.3, 0.0, 2.0)
         top_p1 = get_float("Set top_p (0.0-1.0)", 1.0, 0.0, 1.0)
         max_tokens1 = get_int("Set max_tokens (1-4000)", 1000, 1, 4000)
         n_runs1 = get_int("How many times to run batch 1? (max 20)", 1, 1, 20)
-        logger.info(f"Mode 2: Batch 1 params: temp={temp1}, top_p={top_p1}, max_tokens={max_tokens1}, n_runs={n_runs1}")
+        logger.info(f"Mode 2: Batch 1 params: prompt={system_prompt1!r}, temp={temp1}, top_p={top_p1}, max_tokens={max_tokens1}, n_runs={n_runs1}")
 
         # Batch 2 params
         print("\n--- Batch 2 parameters ---")
+        system_prompt2 = input("Enter system prompt/instructions for Batch 2 (or leave blank for default): ").strip()
         temp2 = get_float("Set temperature (0.0-2.0)", 0.3, 0.0, 2.0)
         top_p2 = get_float("Set top_p (0.0-1.0)", 1.0, 0.0, 1.0)
         max_tokens2 = get_int("Set max_tokens (1-4000)", 1000, 1, 4000)
         n_runs2 = get_int("How many times to run batch 2? (max 20)", 1, 1, 20)
-        logger.info(f"Mode 2: Batch 2 params: temp={temp2}, top_p={top_p2}, max_tokens={max_tokens2}, n_runs={n_runs2}")
+        logger.info(f"Mode 2: Batch 2 params: prompt={system_prompt2!r}, temp={temp2}, top_p={top_p2}, max_tokens={max_tokens2}, n_runs={n_runs2}")
 
         # Run batch 1
         print("\nRunning batch 1...")
@@ -212,9 +325,10 @@ def main():
             "temperature": temp1,
             "top_p": top_p1,
             "max_tokens": max_tokens1,
-            "n_runs": n_runs1
+            "n_runs": n_runs1,
+            "system_prompt": system_prompt1
         }
-        batch1_results = run_batch(query, system_prompt, batch1_params, logger, batch_label="batch_1")
+        batch1_results = run_batch(query, system_prompt1, batch1_params, logger, batch_label="batch_1")
 
         # Confirm to run batch 2
         confirm = input("\nBatch 1 complete. Run batch 2? (y/n, default y): ").strip().lower() or "y"
@@ -229,21 +343,23 @@ def main():
             "temperature": temp2,
             "top_p": top_p2,
             "max_tokens": max_tokens2,
-            "n_runs": n_runs2
+            "n_runs": n_runs2,
+            "system_prompt": system_prompt2
         }
-        batch2_results = run_batch(query, system_prompt, batch2_params, logger, batch_label="batch_2")
+        batch2_results = run_batch(query, system_prompt2, batch2_params, logger, batch_label="batch_2")
 
         # Save JSON
         json_file = input("\nEnter JSON output filename to save results (or leave blank to skip): ").strip()
         output = {
             "query": query,
-            "system_prompt": system_prompt,
             "batch_1": {
                 "parameters": batch1_params,
+                "system_prompt": system_prompt1,
                 "results": batch1_results
             },
             "batch_2": {
                 "parameters": batch2_params,
+                "system_prompt": system_prompt2,
                 "results": batch2_results
             }
         }
@@ -257,7 +373,8 @@ def main():
                 print(f"Failed to save results to {json_file}: {e}")
                 logger.error(f"Failed to save results to {json_file}: {e}")
                 logger.error(traceback.format_exc())
-        offer_summary(output, json_file=json_file if json_file else None)
+        # Use the compact summary for comparison mode
+        offer_summary(output, json_file=json_file if json_file else None, is_comparison=True)
 
     else:
         # Standard batch mode (Mode 1)
@@ -298,9 +415,18 @@ def main():
                 answer, sources, _, evaluation, context = assistant.generate_rag_response(query)
                 logger.info(f"Run {i+1}: Answer: {answer!r}")
                 logger.info(f"Run {i+1}: Sources: {sources!r}")
-                print(f"\nRun {i+1}:")
-                print(f"Answer: {answer}")
-                print(f"Sources: {sources}")
+                # Display response in a more readable format
+                print(f"\n{'='*80}")
+                print(f"  RUN {i+1}")
+                print(f"{'='*80}")
+                print(f"\n📝 ANSWER:\n")
+                print(f"{answer}")
+                
+                if sources:
+                    print(f"\n📚 SOURCES:\n")
+                    for idx, source in enumerate(sources, 1):
+                        print(f"  [{idx}] {source.get('title', 'Untitled')}")
+                print(f"\n{'-'*80}")
                 results.append({
                     "run": i+1,
                     "query": query,

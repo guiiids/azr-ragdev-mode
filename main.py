@@ -127,6 +127,17 @@ HTML_TEMPLATE = """
     .hidden {
       display: none !important;
     }
+    /* Styles for mode buttons */
+    .mode-button {
+      transition: all 0.3s ease;
+    }
+    .mode-button.active {
+      transform: scale(1.05);
+    }
+    /* Emergency disable button */
+    #emergency-disable-unified-dev-eval {
+      display: none;
+    }
   </style>
 </head>
 <body class="bg-gray-100">
@@ -146,16 +157,26 @@ HTML_TEMPLATE = """
         <a href="#" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700">
           Analytics
         </a>
-        <button id="toggle-developer-mode-btn" class="ml-4 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" type="button">
-          Developer Mode
-        </button>
+        <!-- Mode buttons will be dynamically added here by unifiedDevEval.js -->
+        <div id="mode-buttons-container" class="ml-4 flex space-x-2">
+          <button id="toggle-developer-mode-btn" class="mode-button px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" type="button">
+            Developer Mode
+          </button>
+          <!-- Batch and Compare mode buttons will be added here -->
+        </div>
       </div>
     </div>
     
     <!-- Chat Messages Area -->
     <div id="chat-messages" class="chat-messages">
-      <!-- Bot welcome message -->
-      <div class="flex items-start gap-2.5 mb-4">
+      <!-- Logo centered in message area before first message -->
+      <div id="center-logo" class="flex flex-col items-center justify-center h-full">
+        <img class="w-48 h-48 mb-4" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI Logo">
+        <p class="text-lg font-medium text-gray-700">Ask me anything about our knowledge base</p>
+      </div>
+      
+      <!-- Bot welcome message (initially hidden) -->
+      <div id="welcome-message" class="flex items-start gap-2.5 mb-4 hidden">
         <img class="w-8 h-8 rounded-full" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI Agent">
         <div class="flex flex-col w-full max-w-[90%] leading-1.5">
           <div class="flex items-center space-x-2 rtl:space-x-reverse">
@@ -268,8 +289,33 @@ HTML_TEMPLATE = """
     </div>
   </div>
 
+  <!-- Configuration for unified developer evaluation module -->
   <script>
-    // --- Utility Functions: Must be defined first for global scope ---
+    // Configuration that can be externally modified
+    window.unifiedDevEvalConfig = {
+      enabled: true,
+      apiEndpoints: {
+        developer: '/api/dev_eval',
+        batch: '/api/dev_eval_batch',
+        compare: '/api/dev_eval_compare'
+      },
+      defaultParams: {
+        temperature: 0.3,
+        top_p: 1.0,
+        max_tokens: 1000,
+        runs: 1
+      },
+      uiOptions: {
+        showModeButtons: true,
+        persistSettings: true,
+        animateTransitions: true
+      }
+    };
+  </script>
+
+  <!-- Utility functions and base chat functionality -->
+  <script>
+    // --- Utility Functions ---
     function escapeHtml(unsafe) {
       return unsafe
         .replace(/&/g, "&amp;")
@@ -278,6 +324,7 @@ HTML_TEMPLATE = """
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
+    
     function formatMessage(message) {
       // Convert URLs to links
       message = message.replace(
@@ -293,542 +340,231 @@ HTML_TEMPLATE = """
       return message;
     }
 
-    // --- Developer Mode State and Toggle ---
-    let isDeveloperMode = false;
-    const devModeBtn = document.getElementById('toggle-developer-mode-btn');
-    function updateModeUI() {
-      if (isDeveloperMode) {
-        devModeBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-        devModeBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-        devModeBtn.textContent = 'Developer Mode: ON';
-        addBotMessage("Developer Evaluation mode enabled. Please enter your query for developer analysis.");
-      } else {
-        devModeBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-        devModeBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-        devModeBtn.textContent = 'Developer Mode';
-        addBotMessage("Standard chat mode enabled.");
-      }
-    }
-    if (devModeBtn) {
-      devModeBtn.addEventListener('click', function() {
-        isDeveloperMode = !isDeveloperMode;
-        updateModeUI();
-      });
-    }
-
-    // --- Custom Instructions Reset on Page Load ---
-    // Always clear custom instructions and mode on page load (refresh/new tab)
-    if (window.localStorage) {
-      localStorage.removeItem('systemPrompt');
-      localStorage.removeItem('systemPromptMode');
-    }
-    // DOM elements
+    // --- DOM elements ---
     const chatMessages = document.getElementById('chat-messages');
     const queryInput = document.getElementById('query-input');
     const submitBtn = document.getElementById('submit-btn');
-    if (queryInput && submitBtn) {
-  queryInput.addEventListener('keydown', function() {
-    submitBtn.disabled = false;
-    // console.log('Keydown in queryInput, submitBtn enabled.'); // For testing
-  });
-} else {
-  console.error('Query input or submit button not found!');
-}
-    // Function to handle query submission
-    function submitQuery() {
-      const query = queryInput.value.trim();
-      if (!query) return;
-      addUserMessage(query);
-      queryInput.value = '';
-      submitBtn.disabled = false;
-
-      if (isDeveloperMode) {
-        // Developer Mode: handled by dev_eval_chat.js
-        return;
-      }
-
-      // --- Standard Chat Mode ---
-      // Show typing indicator
-      const typingIndicator = addTypingIndicator();
-
-      // Call API to get response
-      // Build settings object for system prompt
-      let settings = undefined;
-      if (systemPrompt && systemPrompt.trim() !== '') {
-        if (systemPromptMode === 'Append') {
-          // Only send user's custom instructions for append
-          settings = {
-            system_prompt: systemPrompt,
-            system_prompt_mode: 'Append'
-          };
-        } else if (systemPromptMode === 'Override') {
-          // Send full prompt for override
-          settings = {
-            system_prompt: systemPrompt,
-            system_prompt_mode: 'Override'
-          };
-        }
-      }
-      const payload = settings ? { query, settings } : { query };
-
-      fetch('/api/stream_query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      .then(response => {
-        if (!response.body) throw new Error('No response body');
-        
-        // Remove typing indicator
-        if (typingIndicator) {
-          typingIndicator.remove();
-        }
-        
-        // Process streaming response
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let botMessageElement = null;
-        let botMessageContent = '';
-        let meta = null;
-        let done = false;
-        let buffer = '';
-        
-        function processStream() {
-          return reader.read().then(({ value, done: streamDone }) => {
-            if (value) {
-              buffer += decoder.decode(value, { stream: true });
-              
-              // Process buffer for [[META]]
-              let metaIdx = buffer.indexOf('[[META]]');
-              if (metaIdx !== -1) {
-                // Everything before [[META]] is answer, after is meta JSON
-                const answerPart = buffer.slice(0, metaIdx);
-                if (answerPart) {
-                  botMessageContent += answerPart;
-                  if (!botMessageElement) {
-                    botMessageElement = addBotMessage(botMessageContent);
-                  } else {
-                    updateBotMessage(botMessageElement, botMessageContent);
-                  }
-                }
-                
-                const metaJson = buffer.slice(metaIdx + 8).trim();
-                if (metaJson) {
-                  try {
-                    meta = JSON.parse(metaJson);
-                    console.log('Citation data:', meta.sources);
-                  } catch (e) {
-                    console.error('Error parsing meta:', e);
-                  }
-                }
-                
-                done = true;
-                return;
-              } else {
-                // No meta yet, just append to answer
-                botMessageContent += buffer;
-                if (!botMessageElement) {
-                  botMessageElement = addBotMessage(botMessageContent);
-                } else {
-                  updateBotMessage(botMessageElement, botMessageContent);
-                }
-                buffer = '';
-              }
-            }
-            
-            if (streamDone) {
-              done = true;
-              return;
-            }
-            
-            // Continue reading
-            return processStream();
-          });
-        }
-        
-        return processStream().then(() => {
-          // Scroll to bottom
-          // --- Citation and Sources Handling ---
-          if (meta && meta.sources && Array.isArray(meta.sources) && meta.sources.length > 0) {
-            // Show sources section
-            const sourcesContainer = document.getElementById('sources-container');
-            const sourcesDiv = document.getElementById('sources');
-            sourcesContainer.classList.remove('hidden');
-            // Render sources
-            sourcesDiv.innerHTML = meta.sources.map((src, idx) => {
-              // src can be string or object
-              let label = src.title || src.name || src.url || src.text || src.id || src;
-              let url = src.url || (typeof src === 'string' && src.startsWith('http') ? src : null);
-              let extra = src.extra || '';
-              // Remove direct hyperlinking from label; add a "View Source" button if URL exists
-              return `<div id="source-${idx+1}" class="mb-2">
-                <span class="font-semibold">[${idx+1}]</span>
-                <span>${label}</span>
-                ${url ? `<button class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded view-source-btn" data-url="${url}" data-source="${idx+1}">View Source</button>` : ''}
-                ${extra ? `<span class="text-gray-500 ml-2">${extra}</span>` : ''}
-              </div>`;
-            }).join('');
-            // Add click handlers for "View Source" buttons
-            const viewBtns = sourcesDiv.querySelectorAll('.view-source-btn');
-            viewBtns.forEach(btn => {
-              btn.addEventListener('click', function(e) {
-                const url = this.getAttribute('data-url');
-                if (url) window.open(url, '_blank');
-              });
-            });
-            // Update the last bot message to hyperlink citations
-            if (botMessageElement) {
-              const messageContent = botMessageElement.querySelector('.text-sm.font-normal.py-2');
-              if (messageContent) {
-                // Replace [n] with anchor links
-                let html = messageContent.innerHTML;
-                html = html.replace(/\[(\d+)\]/g, function(match, n) {
-                  if (n > 0 && n <= meta.sources.length) {
-                    return `<a href="#source-${n}" class="text-blue-600 hover:underline citation-link" data-cite="${n}">[${n}]</a>`;
-                  }
-                  return match;
-                });
-                messageContent.innerHTML = html;
-                // Add click handler to scroll to source and open URL if present
-                const links = messageContent.querySelectorAll('.citation-link');
-                links.forEach(link => {
-                  link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // Always show sources panel
-                    const sourcesContainer = document.getElementById('sources-container');
-                    if (sourcesContainer) sourcesContainer.classList.remove('hidden');
-                    const n = this.getAttribute('data-cite');
-                    const target = document.getElementById('source-' + n);
-                    if (target) {
-                      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      target.classList.add('bg-yellow-100');
-                      setTimeout(() => target.classList.remove('bg-yellow-100'), 1200);
-                      // If the source has a URL, open it in a new tab
-                      const src = meta.sources[parseInt(n, 10) - 1];
-                      let url = src && (src.url || (typeof src === 'string' && src.startsWith('http') ? src : null));
-                      if (url) window.open(url, '_blank');
-                    }
-                  });
-                });
-              }
-            }
-          } else {
-            // Hide sources section if no sources
-            const sourcesContainer = document.getElementById('sources-container');
-            if (sourcesContainer) sourcesContainer.classList.add('hidden');
-            const sourcesDiv = document.getElementById('sources');
-            if (sourcesDiv) sourcesDiv.innerHTML = '';
-          }
-          scrollToBottom();
-          // Enable submit button
-          submitBtn.disabled = false;
-        });
-      })
-      .catch(error => {
-        if (typingIndicator) typingIndicator.remove();
-        addBotMessage('Sorry, I encountered an error while processing your request. Please try again.');
-        // Enable submit button
-        submitBtn.disabled = false;
-      });
-    }
     
-    // Add event listener for Enter key
-    queryInput.addEventListener('keydown', function(event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        submitQuery();
-      }
-    });
-    
-    // Add event listener for submit button
-    submitBtn.addEventListener('click', submitQuery);
-    
-    // Function to add user message to chat
+    // --- Chat functionality ---
+    // Add user message to chat
     function addUserMessage(message) {
-      const userMessageDiv = document.createElement('div');
-      userMessageDiv.className = 'flex items-start gap-2.5 mb-4 justify-end';
-      
-      // Get current time in HH:MM format
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const timeString = `${hours}:${minutes}`;
-      
-      userMessageDiv.innerHTML = `
-        <div class="flex flex-col w-full max-w-[90%] leading-1.5 items-end">
-          <div class="flex items-center justify-end space-x-2 rtl:space-x-reverse">
-            <span class="text-sm font-normal text-gray-500 dark:text-gray-400">${timeString}</span>
-            <span class="text-sm font-semibold text-gray-900 dark:text-white">You</span>
-          </div>
-          <div class="text-sm font-normal py-2 px-4 bg-blue-600 text-white rounded-lg">
-            ${escapeHtml(message)}
-          </div>
-        </div>
-        <img class="w-8 h-8 rounded-full" src="https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff" alt="User">
-      `;
-      chatMessages.appendChild(userMessageDiv);
-      scrollToBottom();
-      return userMessageDiv;
-    }
-    
-    // Function to add bot message to chat
-    function addBotMessage(message) {
-      const botMessageDiv = document.createElement('div');
-      botMessageDiv.className = 'flex items-start gap-2.5 mb-4';
-      
-      // Get current time in HH:MM format
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const timeString = `${hours}:${minutes}`;
-      
-      botMessageDiv.innerHTML = `
-        <img class="w-8 h-8 rounded-full" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI Agent">
-        <div class="flex flex-col w-full max-w-[90%] leading-1.5">
-          <div class="flex items-center space-x-2 rtl:space-x-reverse">
-            <span class="text-sm font-semibold text-gray-900 dark:text-white">SPARK/<span class="mt-1 text-sm leading-tight font-medium text-indigo-500 hover:underline">AI Agent</span></span>
-            <span class="text-sm font-normal text-gray-500 dark:text-gray-400">${timeString}</span>
-          </div>
-          <div class="text-sm font-normal py-2 text-gray-900 dark:text-white">
-            ${formatMessage(message)}
-          </div>
-          <span class="text-sm font-normal text-gray-500 dark:text-gray-400">Delivered</span>
-        </div>
-      `;
-      chatMessages.appendChild(botMessageDiv);
-      scrollToBottom();
-      return botMessageDiv;
-    }
-    
-    // Function to update bot message content
-    function updateBotMessage(element, message) {
-      const messageContent = element.querySelector('.text-sm.font-normal.py-2');
-      if (messageContent) {
-        messageContent.innerHTML = formatMessage(message);
+      // Hide center logo if visible
+      const centerLogo = document.getElementById('center-logo');
+      if (centerLogo && !centerLogo.classList.contains('hidden')) {
+        centerLogo.classList.add('hidden');
       }
-    }
-    
-    // Function to add typing indicator
-    function addTypingIndicator() {
-      const typingDiv = document.createElement('div');
-      typingDiv.className = 'flex items-start gap-2.5 mb-4';
-      typingDiv.innerHTML = `
-        <img class="w-8 h-8 rounded-full" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI Agent">
-        <div class="flex flex-col w-full max-w-[90%] leading-1.5">
-          <div class="flex items-center space-x-2 rtl:space-x-reverse">
-            <span class="text-sm font-semibold text-gray-900 dark:text-white">SPARK/<span class="mt-1 text-sm leading-tight font-medium text-indigo-500 hover:underline">AI Agent</span></span>
-          </div>
-          <div class="typing-indicator">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
+      
+      // Create message element
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'user-message';
+      messageDiv.innerHTML = `
+        <div class="message-bubble user-bubble">
+          ${formatMessage(escapeHtml(message))}
         </div>
       `;
-      chatMessages.appendChild(typingDiv);
-      scrollToBottom();
-      return typingDiv;
-    }
-    
-    // Function to scroll to bottom of chat
-    function scrollToBottom() {
+      
+      // Add to chat
+      chatMessages.appendChild(messageDiv);
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
-    // Function to escape HTML
-    function escapeHtml(unsafe) {
-      return unsafe
-        .replace(/&/g, "&")
-        .replace(/</g, "<")
-        .replace(/>/g, ">")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    // Add bot message to chat
+    function addBotMessage(message) {
+      // Hide center logo if visible
+      const centerLogo = document.getElementById('center-logo');
+      if (centerLogo && !centerLogo.classList.contains('hidden')) {
+        centerLogo.classList.add('hidden');
+      }
+      
+      // Create message element
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'bot-message';
+      messageDiv.innerHTML = `
+        <img class="avatar" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI">
+        <div class="message-bubble bot-bubble">
+          ${formatMessage(message)}
+        </div>
+      `;
+      
+      // Add to chat
+      chatMessages.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
+    // Add typing indicator
+    function addTypingIndicator() {
+      const indicatorDiv = document.createElement('div');
+      indicatorDiv.className = 'bot-message';
+      indicatorDiv.innerHTML = `
+        <img class="avatar" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI">
+        <div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>
+      `;
+      
+      chatMessages.appendChild(indicatorDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      return indicatorDiv;
+    }
     
-  // Console Drawer
-  const toggleBtn = document.getElementById('toggle-console-btn');
-  const closeBtn = document.getElementById('close-console-btn');
-  const backdrop = document.getElementById('console-backdrop');
-  const drawer = document.getElementById('console-drawer');
-  const logsContainer = document.getElementById('console-logs-content');
-
-  function openDrawer() {
-    backdrop.classList.remove('hidden');
-    drawer.classList.remove('translate-x-full');
-    drawer.classList.add('translate-x-0');
-  }
-
-  function closeDrawer() {
-    backdrop.classList.add('hidden');
-    drawer.classList.remove('translate-x-0');
-    drawer.classList.add('translate-x-full');
-  }
-
-  toggleBtn.addEventListener('click', openDrawer);
-  closeBtn.addEventListener('click', closeDrawer);
-  backdrop.addEventListener('click', closeDrawer);
-
-  // Settings Drawer
-  const toggleSettingsBtn = document.getElementById('toggle-settings-btn');
-  const closeSettingsBtn = document.getElementById('close-settings-btn');
-  const settingsBackdrop = document.getElementById('settings-backdrop');
-  const settingsDrawer = document.getElementById('settings-drawer');
-  const settingsForm = document.getElementById('settings-form');
-  const customPromptInput = document.getElementById('custom-prompt');
-  const resetSettingsBtn = document.getElementById('reset-settings-btn');
-  const settingsStatus = document.getElementById('settings-status');
-  const settingsStatusText = document.getElementById('settings-status-text');
-  const restoreDefaultBtn = document.getElementById('restore-default-btn');
-
-  // Default system prompt (should match backend)
-  const DEFAULT_SYSTEM_PROMPT = `
-    ### Task:
-
-    Respond to the user query using the provided context, incorporating inline citations in the format [id] **only when the <source> tag includes an explicit id attribute** (e.g., <source id="1">).
+    // Basic input handling
+    if (queryInput && submitBtn) {
+      // Enable submit button on input
+      queryInput.addEventListener('keydown', function(e) {
+        submitBtn.disabled = false;
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          submitBtn.click();
+        }
+      });
+      
+      // Submit button click handler (will be overridden by unifiedDevEval.js if enabled)
+      submitBtn.addEventListener('click', function() {
+        // This will be replaced by the unified module's handler
+        // but serves as a fallback if the module fails to load
+        submitQuery();
+      });
+    }
     
-    ### Guidelines:
-
-    - If you don't know the answer, clearly state that.
-    - If uncertain, ask the user for clarification.
-    - Respond in the same language as the user's query.
-    - If the context is unreadable or of poor quality, inform the user and provide the best possible answer.
-    - If the answer isn't present in the context but you possess the knowledge, explain this to the user and provide the answer using your own understanding.
-    - **Only include inline citations using [id] (e.g., [1], [2]) when the <source> tag includes an id attribute.**
-    - Do not cite if the <source> tag does not contain an id attribute.
-    - Do not use XML tags in your response.
-    - Ensure citations are concise and directly related to the information provided.
-  `.trim();
-
-  function openSettingsDrawer() {
-    settingsBackdrop.classList.remove('hidden');
-    settingsDrawer.classList.remove('translate-x-full');
-    settingsDrawer.classList.add('translate-x-0');
-  }
-
-  function closeSettingsDrawer() {
-    settingsBackdrop.classList.add('hidden');
-    settingsDrawer.classList.remove('translate-x-0');
-    settingsDrawer.classList.add('translate-x-full');
-  }
-
-  toggleSettingsBtn.addEventListener('click', openSettingsDrawer);
-  closeSettingsBtn.addEventListener('click', closeSettingsDrawer);
-  settingsBackdrop.addEventListener('click', closeSettingsDrawer);
-
-  // Developer settings sliders
-  const temperatureSlider = document.getElementById('dev-temperature');
-  const temperatureValue = document.getElementById('temperature-value');
-  const topPSlider = document.getElementById('dev-top-p');
-  const topPValue = document.getElementById('top-p-value');
-  
-  if (temperatureSlider && temperatureValue) {
-    temperatureSlider.addEventListener('input', function() {
-      temperatureValue.textContent = this.value;
-    });
-  }
-  
-  if (topPSlider && topPValue) {
-    topPSlider.addEventListener('input', function() {
-      topPValue.textContent = this.value;
-    });
-  }
-
-  // Settings state
-  let systemPrompt = '';
-  let systemPromptMode = 'Append';
-
-  // Load from localStorage if available
-  if (window.localStorage) {
-    systemPrompt = localStorage.getItem('systemPrompt') || '';
-    systemPromptMode = localStorage.getItem('systemPromptMode') || 'Append';
-    customPromptInput.value = systemPrompt;
-    const modeInputs = settingsForm.querySelectorAll('input[name="prompt-mode"]');
-    modeInputs.forEach(input => {
-      input.checked = (input.value === systemPromptMode);
-    });
-  }
-
-  // Handle settings form submit
-  settingsForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    systemPrompt = customPromptInput.value.trim();
-    const modeInputs = settingsForm.querySelectorAll('input[name="prompt-mode"]');
-    systemPromptMode = Array.from(modeInputs).find(i => i.checked).value;
-    if (window.localStorage) {
-      localStorage.setItem('systemPrompt', systemPrompt);
-      localStorage.setItem('systemPromptMode', systemPromptMode);
+    // Standard query submission (will be overridden by unifiedDevEval.js)
+    function submitQuery() {
+      const query = queryInput.value.trim();
+      if (!query) return;
+      
+      addUserMessage(query);
+      queryInput.value = '';
+      
+      // Show typing indicator
+      const typingIndicator = addTypingIndicator();
+      
+      // Call API to get response
+      fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query })
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Remove typing indicator
+        if (typingIndicator) typingIndicator.remove();
+        
+        // Show response
+        if (data.error) {
+          addBotMessage('Error: ' + data.error);
+        } else {
+          addBotMessage(data.answer);
+          
+          // Show sources if available
+          if (data.sources && data.sources.length > 0) {
+            const sourcesContainer = document.getElementById('sources-container');
+            const sourcesDiv = document.getElementById('sources');
+            
+            if (sourcesContainer && sourcesDiv) {
+              sourcesDiv.innerHTML = '';
+              data.sources.forEach((source, index) => {
+                const sourceItem = document.createElement('div');
+                sourceItem.className = 'source-item mb-2 p-2 bg-gray-50 rounded';
+                sourceItem.innerHTML = `<strong>[${index + 1}]</strong> ${source}`;
+                sourcesDiv.appendChild(sourceItem);
+              });
+              
+              sourcesContainer.classList.remove('hidden');
+            }
+          }
+        }
+      })
+      .catch(error => {
+        // Remove typing indicator
+        if (typingIndicator) typingIndicator.remove();
+        
+        // Show error
+        addBotMessage('Error: Could not connect to server. Please try again later.');
+        console.error('Error:', error);
+      });
     }
-    settingsStatusText.textContent = 'Settings applied!';
-    settingsStatus.classList.remove('hidden');
-    setTimeout(() => { settingsStatus.classList.add('hidden'); }, 2000);
-    closeSettingsDrawer();
-  });
-
-  // Handle reset
-  resetSettingsBtn.addEventListener('click', function() {
-    systemPrompt = '';
-    systemPromptMode = 'Append';
-    customPromptInput.value = '';
-    const modeInputs = settingsForm.querySelectorAll('input[name="prompt-mode"]');
-    modeInputs.forEach(input => {
-      input.checked = (input.value === 'Append');
-    });
-    if (window.localStorage) {
-      localStorage.removeItem('systemPrompt');
-      localStorage.removeItem('systemPromptMode');
+    
+    // Settings drawer functionality
+    const settingsBtn = document.getElementById('toggle-settings-btn');
+    const settingsDrawer = document.getElementById('settings-drawer');
+    const settingsBackdrop = document.getElementById('settings-backdrop');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+    
+    if (settingsBtn && settingsDrawer && settingsBackdrop && closeSettingsBtn) {
+      // Open settings drawer
+      settingsBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        settingsDrawer.classList.remove('translate-x-full');
+        settingsBackdrop.classList.remove('hidden');
+      });
+      
+      // Close settings drawer
+      function closeSettingsDrawer() {
+        settingsDrawer.classList.add('translate-x-full');
+        settingsBackdrop.classList.add('hidden');
+      }
+      
+      closeSettingsBtn.addEventListener('click', closeSettingsDrawer);
+      settingsBackdrop.addEventListener('click', closeSettingsDrawer);
     }
-    settingsStatusText.textContent = 'Settings reset!';
-    settingsStatus.classList.remove('hidden');
-    setTimeout(() => { settingsStatus.classList.add('hidden'); }, 2000);
-  });
-
-  // Restore default button
-  restoreDefaultBtn.addEventListener('click', function() {
-    // Wipe all custom instructions and mode from localStorage and reset UI to default
-    if (window.localStorage) {
-      localStorage.removeItem('systemPrompt');
-      localStorage.removeItem('systemPromptMode');
+    
+    // Console drawer functionality
+    const consoleBtn = document.getElementById('toggle-console-btn');
+    const consoleDrawer = document.getElementById('console-drawer');
+    const consoleBackdrop = document.getElementById('console-backdrop');
+    const closeConsoleBtn = document.getElementById('close-console-btn');
+    const clearConsoleBtn = document.getElementById('clear-console-btn');
+    const consoleLogsContent = document.getElementById('console-logs-content');
+    
+    if (consoleBtn && consoleDrawer && consoleBackdrop && closeConsoleBtn) {
+      // Open console drawer
+      consoleBtn.addEventListener('click', function() {
+        consoleDrawer.classList.remove('translate-x-full');
+        consoleBackdrop.classList.remove('hidden');
+      });
+      
+      // Close console drawer
+      function closeConsoleDrawer() {
+        consoleDrawer.classList.add('translate-x-full');
+        consoleBackdrop.classList.add('hidden');
+      }
+      
+      closeConsoleBtn.addEventListener('click', closeConsoleDrawer);
+      consoleBackdrop.addEventListener('click', closeConsoleDrawer);
+      
+      // Clear console logs
+      if (clearConsoleBtn && consoleLogsContent) {
+        clearConsoleBtn.addEventListener('click', function() {
+          consoleLogsContent.innerHTML = '';
+        });
+      }
     }
-    systemPrompt = '';
-    systemPromptMode = 'Append';
-    customPromptInput.value = DEFAULT_SYSTEM_PROMPT;
-    const modeInputs = settingsForm.querySelectorAll('input[name="prompt-mode"]');
-    modeInputs.forEach(input => {
-      input.checked = (input.value === 'Append');
-    });
-    settingsStatusText.textContent = 'Restored to default settings!';
-    settingsStatus.classList.remove('hidden');
-    setTimeout(() => { settingsStatus.classList.add('hidden'); }, 2000);
-  });
-
-  // Override console methods
-  ['log','info','warn','error'].forEach(level => {
-    const original = console[level];
-    console[level] = function(...args) {
-      original.apply(console, args);
-      const msg = args
-        .map(a => typeof a === 'object' ? JSON.stringify(a) : a)
-        .join(' ');
-      const entry = document.createElement('div');
-      entry.textContent = '[' + level.toUpperCase() + '] ' + msg;
-      if (level === 'warn') entry.classList.add('text-yellow-600');
-      if (level === 'error') entry.classList.add('text-red-600');
-      logsContainer.appendChild(entry);
-      logsContainer.scrollTop = logsContainer.scrollHeight;
-    };
-  });
-
-  // Clear logs button
-  document.getElementById('clear-console-btn').addEventListener('click', () => {
-    logsContainer.innerHTML = '';
-  });
+    
+    // Function to open console drawer (used by unifiedDevEval.js)
+    function openDrawer() {
+      if (consoleDrawer && consoleBackdrop) {
+        consoleDrawer.classList.remove('translate-x-full');
+        consoleBackdrop.classList.remove('hidden');
+      }
+    }
+    
+    // Make functions available globally for the unified module
+    window.addUserMessage = addUserMessage;
+    window.addBotMessage = addBotMessage;
+    window.addTypingIndicator = addTypingIndicator;
+    window.escapeHtml = escapeHtml;
+    window.formatMessage = formatMessage;
+    window.openDrawer = openDrawer;
+    window.logsContainer = consoleLogsContent;
   </script>
+
+  <!-- Load the unified developer evaluation module -->
   
-  <!-- Developer Evaluation Chat Interface -->
-  <script src="/static/js/dev_eval_chat.js"></script>
-</body>
+<script src="/static/unifiedEval.js"></script>
+
+  </body>
 </html>
+
 """
 
 @app.route("/", methods=["GET"])
@@ -1031,6 +767,569 @@ def api_dev_eval():
         })
     except Exception as e:
         logger.error(f"Error in api_dev_eval: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": str(e)
+        }), 500
+# Add these routes to your main.py file
+
+@app.route('/api/dev_eval', methods=['POST'])
+def dev_eval():
+    """Handle developer evaluation mode requests"""
+    data = request.json
+    
+    # Extract parameters
+    query = data.get('query', '')
+    prompt = data.get('prompt', '')
+    parameters = data.get('parameters', {})
+    
+    # Log the request
+    logger.info(f"Developer evaluation request: query={query}, prompt={prompt}, parameters={parameters}")
+    
+    # Use your existing RAG assistant
+    settings = {
+        "temperature": parameters.get('temperature', 0.3),
+        "top_p": parameters.get('top_p', 1.0),
+        "max_tokens": parameters.get('max_tokens', 1000)
+    }
+    
+    if prompt:
+        settings["system_prompt"] = prompt
+        settings["system_prompt_mode"] = "Override"
+    
+    try:
+        assistant = FlaskRAGAssistant(settings=settings)
+        answer, sources, _, evaluation, context = assistant.generate_rag_response(query)
+        
+        # Try to get developer evaluation if llm_summary module is available
+        developer_evaluation = None
+        try:
+            from llm_summary import developer_evaluate_job
+            developer_evaluation = developer_evaluate_job(
+                query=query,
+                prompt=prompt,
+                parameters=parameters,
+                result=answer
+            )
+        except ImportError:
+            logger.warning("llm_summary module not available for developer evaluation")
+        
+        # Generate unique ID for this evaluation
+        import uuid
+        eval_id = str(uuid.uuid4())
+        
+        # Save results to files
+        os.makedirs('static/dev_eval_reports', exist_ok=True)
+        
+        # Save JSON report
+        json_file = f"static/dev_eval_reports/dev_eval_{eval_id}.json"
+        json_data = {
+            "query": query,
+            "prompt": prompt,
+            "parameters": parameters,
+            "result": answer,
+            "sources": sources,
+            "developer_evaluation": developer_evaluation
+        }
+        
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=2, ensure_ascii=False)
+        
+        # Save Markdown report
+        md_file = f"static/dev_eval_reports/dev_eval_{eval_id}.md"
+        with open(md_file, 'w', encoding='utf-8') as f:
+            f.write(f"# Developer Evaluation Report\n\n")
+            f.write(f"## Query\n\n{query}\n\n")
+            f.write(f"## Parameters\n\n")
+            f.write(f"- Temperature: {parameters.get('temperature', 0.3)}\n")
+            f.write(f"- Top P: {parameters.get('top_p', 1.0)}\n")
+            f.write(f"- Max Tokens: {parameters.get('max_tokens', 1000)}\n\n")
+            if prompt:
+                f.write(f"## Custom Prompt\n\n{prompt}\n\n")
+            f.write(f"## LLM Output\n\n{answer}\n\n")
+            if sources:
+                f.write(f"## Sources\n\n")
+                for i, source in enumerate(sources):
+                    f.write(f"{i+1}. {source}\n")
+                f.write("\n")
+            if developer_evaluation:
+                f.write(f"## Developer Evaluation\n\n{developer_evaluation}\n\n")
+        
+        # Return response
+        return jsonify({
+            "result": answer,
+            "sources": sources,
+            "developer_evaluation": developer_evaluation,
+            "download_url_json": f"/static/dev_eval_reports/dev_eval_{eval_id}.json",
+            "download_url_md": f"/static/dev_eval_reports/dev_eval_{eval_id}.md",
+            "markdown_report": open(md_file, 'r', encoding='utf-8').read()
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in developer evaluation: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/dev_eval_batch', methods=['POST'])
+def dev_eval_batch():
+    """Handle batch evaluation mode requests"""
+    data = request.json
+    
+    # Extract parameters
+    query = data.get('query', '')
+    prompt = data.get('prompt', '')
+    parameters = data.get('parameters', {})
+    runs = data.get('runs', 1)
+    
+    # Log the request
+    logger.info(f"Batch evaluation request: query={query}, prompt={prompt}, parameters={parameters}, runs={runs}")
+    
+    # Use your existing RAG assistant
+    settings = {
+        "temperature": parameters.get('temperature', 0.3),
+        "top_p": parameters.get('top_p', 1.0),
+        "max_tokens": parameters.get('max_tokens', 1000)
+    }
+    
+    if prompt:
+        settings["system_prompt"] = prompt
+        settings["system_prompt_mode"] = "Override"
+    
+    try:
+        results = []
+        assistant = FlaskRAGAssistant(settings=settings)
+        
+        for i in range(runs):
+            try:
+                answer, sources, _, evaluation, context = assistant.generate_rag_response(query)
+                results.append({
+                    "run": i+1,
+                    "answer": answer,
+                    "sources": sources,
+                    "evaluation": evaluation,
+                    "context": context
+                })
+            except Exception as e:
+                logger.error(f"Error on run {i+1}: {str(e)}")
+                logger.error(traceback.format_exc())
+                results.append({
+                    "run": i+1,
+                    "error": str(e),
+                    "traceback": traceback.format_exc()
+                })
+        
+        # Try to get summary if llm_summary module is available
+        summary = None
+        try:
+            from llm_summary import summarize_results
+            summary = summarize_results(results)
+        except ImportError:
+            logger.warning("llm_summary module not available for batch summary")
+        
+        # Generate unique ID for this evaluation
+        import uuid
+        eval_id = str(uuid.uuid4())
+        
+        # Save results to files
+        os.makedirs('static/dev_eval_reports', exist_ok=True)
+        
+        # Save JSON report
+        json_file = f"static/dev_eval_reports/batch_eval_{eval_id}.json"
+        json_data = {
+            "query": query,
+            "prompt": prompt,
+            "parameters": parameters,
+            "runs": runs,
+            "results": results,
+            "summary": summary
+        }
+        
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=2, ensure_ascii=False)
+        
+        # Save Markdown report
+        md_file = f"static/dev_eval_reports/batch_eval_{eval_id}.md"
+        with open(md_file, 'w', encoding='utf-8') as f:
+            f.write(f"# Batch Evaluation Report\n\n")
+            f.write(f"## Query\n\n{query}\n\n")
+            f.write(f"## Parameters\n\n")
+            f.write(f"- Temperature: {parameters.get('temperature', 0.3)}\n")
+            f.write(f"- Top P: {parameters.get('top_p', 1.0)}\n")
+            f.write(f"- Max Tokens: {parameters.get('max_tokens', 1000)}\n")
+            f.write(f"- Runs: {runs}\n\n")
+            if prompt:
+                f.write(f"## Custom Prompt\n\n{prompt}\n\n")
+            if summary:
+                f.write(f"## Summary\n\n{summary}\n\n")
+            f.write(f"## Results\n\n")
+            for result in results:
+                f.write(f"### Run {result.get('run')}\n\n")
+                if 'error' in result:
+                    f.write(f"**Error:** {result.get('error')}\n\n")
+                else:
+                    f.write(f"**Answer:**\n\n{result.get('answer')}\n\n")
+                    if result.get('sources'):
+                        f.write(f"**Sources:**\n\n")
+                        for i, source in enumerate(result.get('sources', [])):
+                            f.write(f"{i+1}. {source}\n")
+                        f.write("\n")
+        
+        # Return response
+        return jsonify({
+            "results": results,
+            "summary": summary,
+            "download_url_json": f"/static/dev_eval_reports/batch_eval_{eval_id}.json",
+            "download_url_md": f"/static/dev_eval_reports/batch_eval_{eval_id}.md",
+            "markdown_report": open(md_file, 'r', encoding='utf-8').read()
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in batch evaluation: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/dev_eval_compare', methods=['POST'])
+def dev_eval_compare():
+    """Handle compare evaluation mode requests"""
+    data = request.json
+    
+    # Extract parameters
+    query = data.get('query', '')
+    prompt = data.get('prompt', '')
+    batch1 = data.get('parameters', {})  # First batch parameters
+    batch2 = data.get('batch2', {})      # Second batch parameters
+    
+    # Log the request
+    logger.info(f"Compare evaluation request: query={query}, prompt={prompt}, batch1={batch1}, batch2={batch2}")
+    
+    try:
+        # Process batch 1
+        settings1 = {
+            "temperature": batch1.get('temperature', 0.3),
+            "top_p": batch1.get('top_p', 1.0),
+            "max_tokens": batch1.get('max_tokens', 1000)
+        }
+        
+        if prompt:
+            settings1["system_prompt"] = prompt
+            settings1["system_prompt_mode"] = "Override"
+        
+        batch1_results = []
+        assistant1 = FlaskRAGAssistant(settings=settings1)
+        
+        for i in range(batch1.get('runs', 1)):
+            try:
+                answer, sources, _, evaluation, context = assistant1.generate_rag_response(query)
+                batch1_results.append({
+                    "run": i+1,
+                    "answer": answer,
+                    "sources": sources,
+                    "evaluation": evaluation,
+                    "context": context
+                })
+            except Exception as e:
+                logger.error(f"Error on batch 1, run {i+1}: {str(e)}")
+                logger.error(traceback.format_exc())
+                batch1_results.append({
+                    "run": i+1,
+                    "error": str(e),
+                    "traceback": traceback.format_exc()
+                })
+        
+        # Process batch 2
+        settings2 = {
+            "temperature": batch2.get('temperature', 0.3),
+            "top_p": batch2.get('top_p', 1.0),
+            "max_tokens": batch2.get('max_tokens', 1000)
+        }
+        
+        if prompt:
+            settings2["system_prompt"] = prompt
+            settings2["system_prompt_mode"] = "Override"
+        
+        batch2_results = []
+        assistant2 = FlaskRAGAssistant(settings=settings2)
+        
+        for i in range(batch2.get('runs', 1)):
+            try:
+                answer, sources, _, evaluation, context = assistant2.generate_rag_response(query)
+                batch2_results.append({
+                    "run": i+1,
+                    "answer": answer,
+                    "sources": sources,
+                    "evaluation": evaluation,
+                    "context": context
+                })
+            except Exception as e:
+                logger.error(f"Error on batch 2, run {i+1}: {str(e)}")
+                logger.error(traceback.format_exc())
+                batch2_results.append({
+                    "run": i+1,
+                    "error": str(e),
+                    "traceback": traceback.format_exc()
+                })
+        
+        # Generate unique ID for this evaluation
+        import uuid
+        eval_id = str(uuid.uuid4())
+        
+        # Save results to files
+        os.makedirs('static/dev_eval_reports', exist_ok=True)
+        
+        # Save JSON report
+        json_file = f"static/dev_eval_reports/compare_eval_{eval_id}.json"
+        json_data = {
+            "query": query,
+            "prompt": prompt,
+            "batch1": {
+                "parameters": batch1,
+                "results": batch1_results
+            },
+            "batch2": {
+                "parameters": batch2,
+                "results": batch2_results
+            }
+        }
+        
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=2, ensure_ascii=False)
+        
+        # Save Markdown report
+        md_file = f"static/dev_eval_reports/compare_eval_{eval_id}.md"
+        with open(md_file, 'w', encoding='utf-8') as f:
+            f.write(f"# Compare Evaluation Report\n\n")
+            f.write(f"## Query\n\n{query}\n\n")
+            if prompt:
+                f.write(f"## Custom Prompt\n\n{prompt}\n\n")
+            
+            f.write(f"## Batch 1 Parameters\n\n")
+            f.write(f"- Temperature: {batch1.get('temperature', 0.3)}\n")
+            f.write(f"- Top P: {batch1.get('top_p', 1.0)}\n")
+            f.write(f"- Max Tokens: {batch1.get('max_tokens', 1000)}\n")
+            f.write(f"- Runs: {batch1.get('runs', 1)}\n\n")
+            
+            f.write(f"## Batch 2 Parameters\n\n")
+            f.write(f"- Temperature: {batch2.get('temperature', 0.3)}\n")
+            f.write(f"- Top P: {batch2.get('top_p', 1.0)}\n")
+            f.write(f"- Max Tokens: {batch2.get('max_tokens', 1000)}\n")
+            f.write(f"- Runs: {batch2.get('runs', 1)}\n\n")
+            
+            f.write(f"## Batch 1 Results\n\n")
+            for result in batch1_results:
+                f.write(f"### Run {result.get('run')}\n\n")
+                if 'error' in result:
+                    f.write(f"**Error:** {result.get('error')}\n\n")
+                else:
+                    f.write(f"**Answer:**\n\n{result.get('answer')}\n\n")
+                    if result.get('sources'):
+                        f.write(f"**Sources:**\n\n")
+                        for i, source in enumerate(result.get('sources', [])):
+                            f.write(f"{i+1}. {source}\n")
+                        f.write("\n")
+            
+            f.write(f"## Batch 2 Results\n\n")
+            for result in batch2_results:
+                f.write(f"### Run {result.get('run')}\n\n")
+                if 'error' in result:
+                    f.write(f"**Error:** {result.get('error')}\n\n")
+                else:
+                    f.write(f"**Answer:**\n\n{result.get('answer')}\n\n")
+                    if result.get('sources'):
+                        f.write(f"**Sources:**\n\n")
+                        for i, source in enumerate(result.get('sources', [])):
+                            f.write(f"{i+1}. {source}\n")
+                        f.write("\n")
+        
+        # Return response
+        return jsonify({
+            "batch1_results": batch1_results,
+            "batch2_results": batch2_results,
+            "download_url_json": f"/static/dev_eval_reports/compare_eval_{eval_id}.json",
+            "processEvaluation": f"/static/dev_eval_reports/compare_eval_{eval_id}.md",
+            "markdown_report": open(md_file, 'r', encoding='utf-8').read()
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in compare evaluation: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+@app.route("/api/dev_eval_compare", methods=["POST"])
+def api_dev_eval_compare():
+    """
+    Developer Evaluation Compare API endpoint.
+    Expects JSON: {
+        "query": "...",
+        "prompt": "...",  # Prompt for batch 1
+        "parameters": { "temperature": ..., "top_p": ..., "max_tokens": ... },  # Parameters for batch 1
+        "runs": 1,  # Number of runs for batch 1
+        "batch2": {
+            "temperature": ...,
+            "top_p": ...,
+            "max_tokens": ...,
+            "runs": 1,
+            "prompt": "..."  # Separate prompt for batch 2
+        }
+    }
+    Returns: {
+        "batch1_results": [...],
+        "batch2_results": [...],
+        "download_url_json": "...",
+        "download_url_md": "...",
+        "markdown_report": "..."
+    }
+    """
+    from llm_summary import developer_evaluate_job, generate_markdown_report
+    import uuid
+
+    data = request.get_json()
+    query = data.get("query", "")
+    
+    # Log the incoming request
+    logger.info(f"Compare evaluation request: query={query}, prompt={data.get('prompt', '')}, batch1={data.get('parameters', {})}, batch2={data.get('batch2', {})}")
+    
+    # Extract batch 1 parameters
+    prompt1 = data.get("prompt", "")
+    params1 = data.get("parameters", {}) or {}
+    temperature1 = params1.get("temperature", 0.3)
+    top_p1 = params1.get("top_p", 1.0)
+    max_tokens1 = params1.get("max_tokens", 1000)
+    runs1 = data.get("runs", 1)
+    
+    # Extract batch 2 parameters
+    batch2 = data.get("batch2", {})
+    prompt2 = batch2.get("prompt", prompt1)  # Default to batch 1 prompt if not specified
+    temperature2 = batch2.get("temperature", 0.3)
+    top_p2 = batch2.get("top_p", 1.0)
+    max_tokens2 = batch2.get("max_tokens", 1000)
+    runs2 = batch2.get("runs", 1)
+    
+    try:
+        # Process batch 1
+        batch1_results = []
+        for i in range(runs1):
+            settings1 = {
+                "temperature": temperature1,
+                "top_p": top_p1,
+                "max_tokens": max_tokens1
+            }
+            if prompt1:
+                settings1["system_prompt"] = prompt1
+                settings1["system_prompt_mode"] = "Override"
+            
+            rag_assistant1 = FlaskRAGAssistant(settings=settings1)
+            answer1, sources1, _, evaluation1, context1 = rag_assistant1.generate_rag_response(query)
+            
+            batch1_results.append({
+                "run": i+1,
+                "answer": answer1,
+                "sources": sources1,
+                "evaluation": evaluation1
+            })
+        
+        # Process batch 2
+        batch2_results = []
+        for i in range(runs2):
+            settings2 = {
+                "temperature": temperature2,
+                "top_p": top_p2,
+                "max_tokens": max_tokens2
+            }
+            if prompt2:
+                settings2["system_prompt"] = prompt2
+                settings2["system_prompt_mode"] = "Override"
+            
+            rag_assistant2 = FlaskRAGAssistant(settings=settings2)
+            answer2, sources2, _, evaluation2, context2 = rag_assistant2.generate_rag_response(query)
+            
+            batch2_results.append({
+                "run": i+1,
+                "answer": answer2,
+                "sources": sources2,
+                "evaluation": evaluation2
+            })
+        
+        # Generate developer evaluation for the comparison
+        dev_eval = developer_evaluate_job(
+            query=query,
+            prompt=f"Batch 1: {prompt1}\nBatch 2: {prompt2}",
+            parameters={
+                "batch1": {
+                    "temperature": temperature1,
+                    "top_p": top_p1,
+                    "max_tokens": max_tokens1,
+                    "runs": runs1
+                },
+                "batch2": {
+                    "temperature": temperature2,
+                    "top_p": top_p2,
+                    "max_tokens": max_tokens2,
+                    "runs": runs2
+                }
+            },
+            result=f"Batch 1 (first run): {batch1_results[0]['answer'] if batch1_results else 'No results'}\n\nBatch 2 (first run): {batch2_results[0]['answer'] if batch2_results else 'No results'}"
+        )
+        
+        # Save to file and provide download link
+        result_obj = {
+            "query": query,
+            "batch1": {
+                "prompt": prompt1,
+                "parameters": {
+                    "temperature": temperature1,
+                    "top_p": top_p1,
+                    "max_tokens": max_tokens1,
+                    "runs": runs1
+                },
+                "results": batch1_results
+            },
+            "batch2": {
+                "prompt": prompt2,
+                "parameters": {
+                    "temperature": temperature2,
+                    "top_p": top_p2,
+                    "max_tokens": max_tokens2,
+                    "runs": runs2
+                },
+                "results": batch2_results
+            },
+            "developer_evaluation": dev_eval
+        }
+        
+        # Generate markdown report
+        markdown_report = generate_markdown_report(result_obj)
+        
+        # Save with a unique filename
+        file_id = str(uuid.uuid4())
+        json_filename = f"dev_eval_compare_{file_id}.json"
+        md_filename = f"dev_eval_compare_{file_id}.md"
+        
+        file_path = os.path.join("reask_dashboard", "static", "dev_eval_reports")
+        os.makedirs(file_path, exist_ok=True)
+        
+        # Save JSON file
+        json_path = os.path.join(file_path, json_filename)
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(result_obj, f, indent=2, ensure_ascii=False)
+        
+        # Save Markdown file
+        md_path = os.path.join(file_path, md_filename)
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(markdown_report)
+        
+        # Download URLs
+        json_url = f"/static/dev_eval_reports/{json_filename}"
+        md_url = f"/static/dev_eval_reports/{md_filename}"
+        
+        return jsonify({
+            "batch1_results": batch1_results,
+            "batch2_results": batch2_results,
+            "developer_evaluation": dev_eval,
+            "download_url_json": json_url,
+            "download_url_md": md_url,
+            "markdown_report": markdown_report
+        })
+    except Exception as e:
+        logger.error(f"Error in api_dev_eval_compare: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
             "error": str(e)
