@@ -191,7 +191,6 @@ HTML_TEMPLATE = """
       <!-- Messages will be added here dynamically -->
     </div>
 
-    <!-- Sources Section -->
     <div id="sources-container" class="hidden">
       <div id="sources-header" class="flex items-center justify-between cursor-pointer px-4 py-2 border-t">
         <h2 class="text-sm font-semibold text-gray-700">Sources</h2>

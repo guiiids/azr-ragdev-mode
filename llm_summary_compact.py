@@ -35,8 +35,41 @@ Provide:
 
 def summarize_batch_comparison(results):
     """
-    Create a compact summary comparing two batches with different parameters.
-    Only passes essential information to stay within token limits.
+    You are an expert LLM analyst tasked with evaluating two batches of LLM responses differing in both prompt instructions and model parameters. Your evaluation must directly reference the provided user query and explicitly analyze whether responses address the user's intent and specific details.
+
+QUERY:
+{query}
+
+BATCH 1 SETTINGS:
+- System Prompt: "{prompt1}"
+- Temperature: {temp1}, Top P: {top_p1}, Max Tokens: {max_tokens1}, Runs: {n_runs1}
+
+BATCH 1 SAMPLE RESPONSE:
+{response1}
+
+BATCH 2 SETTINGS:
+- System Prompt: "{prompt2}"
+- Temperature: {temp2}, Top P: {top_p2}, Max Tokens: {max_tokens2}, Runs: {n_runs2}
+
+BATCH 2 SAMPLE RESPONSE:
+{response2}
+
+Provide your analysis structured explicitly as follows:
+
+1. **Query Alignment and Intent Capture**:  
+   Clearly state whether each batch's response accurately and fully addressed the specific user query ("{query}"). Provide concrete examples from each response indicating completeness, accuracy, relevance, and depth of information.
+
+2. **Prompt Instruction Adherence**:  
+   Analyze explicitly if each batch clearly followed its given custom instruction ("{prompt1}" vs "{prompt2}"). Provide evidence from each response demonstrating alignment or misalignment with these instructions.
+
+3. **Parameter Effects on Response Quality**:  
+   Evaluate how the specific parameter settings (temperature, top_p, max_tokens) affected the responses practically and noticeably, referencing clear examples from each batch.
+
+4. **Overall Batch Effectiveness**:  
+   Based on query alignment, prompt adherence, and parameter settings, clearly state which batch provided a superior response to the query, and justify your reasoning explicitly.
+
+5. **Specific Actionable Recommendations**:  
+   Provide explicit suggestions for how prompts and parameters can be concretely improved for similar future queries. Include practical rephrasing examples, ideal parameter adjustments, and clearly indicate how these recommendations directly address gaps observed in the current responses. Avoid generic suggestions—make your recommendations explicitly tied to examples from the provided responses and the original query.
     
     Args:
         results: dict containing batch comparison results
@@ -119,53 +152,5 @@ def summarize_batch_comparison(results):
         return answer
     except Exception as e:
         return f"Error generating summary: {str(e)}"
-
-# Function to evaluate prompt effectiveness for a single batch
-EVALUATE_PROMPT_EFFECTIVENESS_PROMPT = """
-You are an expert LLM analyst. Given the following:
-- Query: {query}
-- System Prompt: {prompt}
-- Parameters: temperature={temp}, top_p={top_p}, max_tokens={max_tokens}
-- Sample Response: {response}
-
-Evaluate how effectively the system prompt addressed the user’s query. Do not critique the query nor suggest alternate queries. Provide a concise assessment.
-"""
-
-def evaluate_prompt_effectiveness(batch_data):
-    """
-    Evaluate how effectively the system prompt addressed the query.
-    Args:
-        batch_data: dict with keys 'query', 'system_prompt', 'parameters', 'results'
-    Returns:
-        str: LLM-generated evaluation of the system prompt.
-    """
-    query = batch_data.get("query", "")
-    prompt = batch_data.get("system_prompt", "")
-    params = batch_data.get("parameters", {})
-    temp = params.get("temperature", "")
-    top_p = params.get("top_p", "")
-    max_tokens = params.get("max_tokens", "")
-    # Get first response
-    results = batch_data.get("results", [])
-    response = ""
-    if isinstance(results, list) and results:
-        first = results[0]
-        response = first.get("answer") or first.get("result") or ""
-    assistant = FlaskRAGAssistant(settings={
-        "temperature": temp or 0.3,
-        "top_p": top_p or 1.0,
-        "max_tokens": max_tokens or 1000
-    })
-    prompt_text = EVALUATE_PROMPT_EFFECTIVENESS_PROMPT.format(
-        query=query,
-        prompt=prompt,
-        temp=temp,
-        top_p=top_p,
-        max_tokens=max_tokens,
-        response=response[:500] + "..." if len(response) > 500 else response
-    )
-    try:
-        evaluation, *_ = assistant.generate_rag_response(prompt_text)
-        return evaluation
-    except Exception as e:
-        return f"Error evaluating prompt effectiveness: {str(e)}"
+ 
+                       
