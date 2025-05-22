@@ -1,0 +1,55 @@
+{
+  "query": "define iLab",
+  "prompt": "Batch 1: be creative\nBatch 2: ",
+  "parameters": {
+    "batch1": {
+      "temperature": 1,
+      "top_p": 1,
+      "max_tokens": 140,
+      "runs": 1
+    },
+    "batch2": {
+      "temperature": 0.1,
+      "top_p": 1,
+      "max_tokens": 150,
+      "runs": 1
+    }
+  },
+  "result": "BATCH 1 (first run):\n[RAG3] I encountered an error while generating the response.\n\nBATCH 2 (first run):\n[RAG3] I encountered an error while generating the response.",
+  "batch1": {
+    "prompt": "be creative",
+    "parameters": {
+      "temperature": 1,
+      "top_p": 1,
+      "max_tokens": 140,
+      "runs": 1
+    },
+    "results": [
+      {
+        "run": 1,
+        "answer": "[RAG3] I encountered an error while generating the response.",
+        "sources": [],
+        "evaluation": {}
+      }
+    ]
+  },
+  "batch2": {
+    "prompt": "",
+    "parameters": {
+      "temperature": 0.1,
+      "top_p": 1,
+      "max_tokens": 150,
+      "runs": 1
+    },
+    "results": [
+      {
+        "run": 1,
+        "answer": "[RAG3] I encountered an error while generating the response.",
+        "sources": [],
+        "evaluation": {}
+      }
+    ]
+  },
+  "developer_evaluation": "[RAG3] I encountered an error while generating the response.",
+  "llm_analysis": "[RAG3] I encountered an error while generating the response."
+}

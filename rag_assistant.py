@@ -274,6 +274,19 @@ class FlaskRAGAssistant:
         for i, msg in enumerate(messages):
             logger.info(f"Message {i+1} - Role: {msg['role']}")
             logger.info(f"Content: {msg['content']}")
+        # Log the exact JSON payload sent to OpenAI
+        import json
+        payload = {
+            "model": self.deployment_name,
+            "messages÷": messages,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+            "presence_penalty": self.presence_penalty,
+            "frequency_penalty": self.frequency_penalty,
+        }
+        logger.info("========== OPENAI RAW PAYLOAD ==========")
+        logger.info(json.dumps(payload, indent=2))
         resp = self.openai_client.chat.completions.create(
             model=self.deployment_name,
             messages=messages,
@@ -350,6 +363,7 @@ class FlaskRAGAssistant:
             # Add a visible marker to the answer to confirm use of rag_assistant3
             answer = "[RAG3] " + answer
             return answer, cited_sources, [], evaluation, context
+        
 
         except Exception as exc:
             logger.error("RAG generation error: %s", exc)

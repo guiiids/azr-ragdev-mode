@@ -119,3 +119,53 @@ def summarize_batch_comparison(results):
         return answer
     except Exception as e:
         return f"Error generating summary: {str(e)}"
+
+# Function to evaluate prompt effectiveness for a single batch
+EVALUATE_PROMPT_EFFECTIVENESS_PROMPT = """
+You are an expert LLM analyst. Given the following:
+- Query: {query}
+- System Prompt: {prompt}
+- Parameters: temperature={temp}, top_p={top_p}, max_tokens={max_tokens}
+- Sample Response: {response}
+
+Evaluate how effectively the system prompt addressed the user’s query. Do not critique the query nor suggest alternate queries. Provide a concise assessment.
+"""
+
+def evaluate_prompt_effectiveness(batch_data):
+    """
+    Evaluate how effectively the system prompt addressed the query.
+    Args:
+        batch_data: dict with keys 'query', 'system_prompt', 'parameters', 'results'
+    Returns:
+        str: LLM-generated evaluation of the system prompt.
+    """
+    query = batch_data.get("query", "")
+    prompt = batch_data.get("system_prompt", "")
+    params = batch_data.get("parameters", {})
+    temp = params.get("temperature", "")
+    top_p = params.get("top_p", "")
+    max_tokens = params.get("max_tokens", "")
+    # Get first response
+    results = batch_data.get("results", [])
+    response = ""
+    if isinstance(results, list) and results:
+        first = results[0]
+        response = first.get("answer") or first.get("result") or ""
+    assistant = FlaskRAGAssistant(settings={
+        "temperature": temp or 0.3,
+        "top_p": top_p or 1.0,
+        "max_tokens": max_tokens or 1000
+    })
+    prompt_text = EVALUATE_PROMPT_EFFECTIVENESS_PROMPT.format(
+        query=query,
+        prompt=prompt,
+        temp=temp,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        response=response[:500] + "..." if len(response) > 500 else response
+    )
+    try:
+        evaluation, *_ = assistant.generate_rag_response(prompt_text)
+        return evaluation
+    except Exception as e:
+        return f"Error evaluating prompt effectiveness: {str(e)}"

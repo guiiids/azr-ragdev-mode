@@ -601,17 +601,102 @@
                 }
               }
               
-              // Display sources if available
+                // Display sources if available
               if (result.sources && result.sources.length > 0) {
-                let sourcesText = '<strong>Sources:</strong><br>';
+                let sourcesText = '<strong>Sources:</strong><br><div class="sources-container">';
                 result.sources.forEach((source, index) => {
-                  if (typeof source === 'object') {
-                    sourcesText += `[${index + 1}] ${source.title || source.id || 'Source'}<br>`;
-                  } else {
-                    sourcesText += `[${index + 1}] ${source}<br>`;
+                  // Create a unique ID for each source for citation linking
+                  const sourceId = `source-${index + 1}`;
+                  
+                  // Start source item with ID for citation links
+                  sourcesText += `<div id="${sourceId}" class="source-item mb-2 p-2 bg-gray-50 rounded">`;
+                  
+                  // Handle different source formats
+                  let sourceTitle = '';
+                  let sourceContent = '';
+                  
+                  if (typeof source === 'string') {
+                    // For string sources, use the first 100 chars as title and the rest as content
+                    if (source.length > 100) {
+                      sourceTitle = source.substring(0, 100) + '...';
+                      sourceContent = source;
+                    } else {
+                      sourceTitle = source;
+                      sourceContent = '';
+                    }
+                  } else if (typeof source === 'object') {
+                    // Extract title and content from source object
+                    sourceTitle = source.title || source.id || `Source ${index + 1}`;
+                    sourceContent = source.content || '';
                   }
+                  
+                  // Truncate content if it's too long (more than 150 chars)
+                  const isLongContent = sourceContent.length > 150;
+                  const truncatedContent = isLongContent ? 
+                    sourceContent.substring(0, 150) + '...' : 
+                    sourceContent;
+                  
+                  // Create HTML with collapsible content
+                  sourcesText += `
+                    <div>
+                      <strong>[${index + 1}]</strong> <strong>${sourceTitle}</strong>
+                      <div class="source-content">${truncatedContent}</div>
+                      ${isLongContent ? 
+                        `<div class="source-full-content hidden">${sourceContent}</div>
+                         <button class="toggle-source-btn text-blue-600 text-xs mt-1 hover:underline">Show more</button>` 
+                        : ''}
+                    </div>
+                  `;
+                  
+                  sourcesText += '</div>';
                 });
+                sourcesText += '</div>';
+                
                 window.addBotMessage(sourcesText);
+                
+                // Add click event for citation links and toggle buttons
+                setTimeout(() => {
+                  // Handle citation links
+                  document.querySelectorAll('.citation-link').forEach(link => {
+                    link.addEventListener('click', function(e) {
+                      e.preventDefault();
+                      const sourceId = this.getAttribute('data-source-id');
+                      const sourceElement = document.getElementById(`source-${sourceId}`);
+                      if (sourceElement) {
+                        sourceElement.scrollIntoView({ behavior: 'smooth' });
+                        sourceElement.classList.add('bg-yellow-100');
+                        setTimeout(() => {
+                          sourceElement.classList.remove('bg-yellow-100');
+                        }, 2000);
+                      }
+                    });
+                  });
+                  
+                  // Handle toggle source buttons
+                  document.querySelectorAll('.toggle-source-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                      const parentDiv = this.closest('.source-item');
+                      if (!parentDiv) return;
+                      
+                      const truncatedEl = parentDiv.querySelector('.source-content');
+                      const fullEl = parentDiv.querySelector('.source-full-content');
+                      
+                      if (!truncatedEl || !fullEl) return;
+                      
+                      if (truncatedEl.classList.contains('hidden')) {
+                        // Show truncated, hide full
+                        truncatedEl.classList.remove('hidden');
+                        fullEl.classList.add('hidden');
+                        this.textContent = 'Show more';
+                      } else {
+                        // Show full, hide truncated
+                        truncatedEl.classList.add('hidden');
+                        fullEl.classList.remove('hidden');
+                        this.textContent = 'Show less';
+                      }
+                    });
+                  });
+                }, 100);
               }
               
               // Display developer evaluation if available
@@ -628,11 +713,11 @@
                 let downloadLinks = '<strong>Report:</strong><br><div class="flex flex-wrap gap-2 mt-2">';
                 
                 if (result.download_url_json) {
-                  downloadLinks += `<a href="${result.download_url_json}" target="_blank" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block">Download JSON</a>`;
+                  downloadLinks += `<a href="${result.download_url_json}" download class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block">Download JSON</a>`;
                 }
                 
                 if (result.download_url_md) {
-                  downloadLinks += `<a href="${result.download_url_md}" target="_blank" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 inline-block">Download Markdown</a>`;
+                  downloadLinks += `<a href="${result.download_url_md}" download class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 inline-block">Download Markdown</a>`;
                 }
                 
                 if (result.markdown_report) {
@@ -755,6 +840,9 @@
       
       toggleMode(mode, button) {
         console.log(`Toggling mode: ${mode}`);
+        // Clear message board
+        const messagesContainer = document.getElementById('chat-messages') || document.querySelector('.messages-container');
+        if (messagesContainer) { messagesContainer.innerHTML = ''; }
         
         // Get all mode buttons
         const modeButtons = document.querySelectorAll('.mode-button');
@@ -769,7 +857,7 @@
             btn.classList.remove('active');
             if (btn.id === 'toggle-developer-mode-btn') {
               btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-              btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+              btn.classList.add('bg-blue-600', 'hover:bg-indigo-700');
               btn.textContent = 'Developer Mode';
             } else if (btn.id === 'toggle-batch-mode-btn') {
               btn.textContent = 'Batch Mode';

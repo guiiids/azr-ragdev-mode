@@ -7,6 +7,7 @@ import os
 
 # Import directly from the current directory
 from rag_assistant import FlaskRAGAssistant
+from llm_summary_compact import summarize_batch_comparison
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -145,16 +146,16 @@ HTML_TEMPLATE = """
     <!-- Header -->
     <div class="bg-white border-b-2 border-gray-200 px-4 py-3 flex items-center justify-between">
       <div class="flex items-center">
-        <h1 class="text-xl font-bold text-gray-900">RAG Knowledge Assistant</h1>
+        <img class='h-10 w-auto ml-2' src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/logo-spark-1.png" alt="Logo"> 
       </div>
-      <div class="inline-flex rounded-md shadow-xs">
-        <a href="#" aria-current="page" class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-gray-200 rounded-s-lg hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700">
+      <div class=" inline-flex rounded-md shadow-xs ">
+        <a href="#" aria-current="page" class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-gray-200 rounded-s-lg hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 hidden">
           Chat
         </a>
-        <a href="#" id="toggle-settings-btn" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700">
+        <a href="#" id="toggle-settings-btn" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 hidden">
           Settings
         </a>
-        <a href="#" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700">
+        <a href="#" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 hidden">
           Analytics
         </a>
         <!-- Mode buttons will be dynamically added here by unifiedDevEval.js -->
@@ -170,10 +171,9 @@ HTML_TEMPLATE = """
     <!-- Chat Messages Area -->
     <div id="chat-messages" class="chat-messages">
       <!-- Logo centered in message area before first message -->
-      <div id="center-logo" class="flex flex-col items-center justify-center h-full">
-        <img class="w-48 h-48 mb-4" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI Logo">
-        <p class="text-lg font-medium text-gray-700">Ask me anything about our knowledge base</p>
-      </div>
+      <div id="center-logo" class="flex flex-col items-center justify-center h-full ">
+      <img class="h-60 w-auto inline-block object-cover md:h-60" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/This-is-a-to-do-item-This-is-completed-item.png" alt="Logo">
+              </div>
       
       <!-- Bot welcome message (initially hidden) -->
       <div id="welcome-message" class="flex items-start gap-2.5 mb-4 hidden">
@@ -192,21 +192,38 @@ HTML_TEMPLATE = """
     </div>
 
     <!-- Sources Section -->
-    <div id="sources-container" class="mt-4 border-t pt-4 hidden">
-      <h2 class="text-xl font-semibold">Sources:</h2>
-      <div id="sources" class="mt-2"></div>
+    <div id="sources-container" class="hidden">
+      <div id="sources-header" class="flex items-center justify-between cursor-pointer px-4 py-2 border-t">
+        <h2 class="text-sm font-semibold text-gray-700">Sources</h2>
+        <svg id="sources-chevron" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+      <div id="sources-body" class="px-4 pb-4 hidden">
+        <div id="sources" class="space-y-1"></div>
+      </div>
     </div>
     
     <!-- Chat Input Area -->
     <div class="chat-input">
       <div class="relative">
-        <input id="query-input" type="text" class="w-full bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded-md pl-3 pr-20 py-3 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow" placeholder="Ask me anything about our knowledge base..." />
+        <input id="query-input" type="text" class="w-full bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded-2xl pl-3 pr-20 py-3 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow" placeholder="Ask me anything about our knowledge base..." />
         <button id="submit-btn" class="absolute right-1 top-1 rounded bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none" type="button">
           Send
         </button>
       </div>
     </div>
-    <button id="toggle-console-btn" class="ml-4 px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded">Console Logs</button>
+    <div class="hiddenflex items-center justify-center ml-4 overflow-visible">
+      <button id="toggle-console-btn" class="group px-3 py-1 w-full bg-gray-100 hover:bg-gray-300 text-gray-800 rounded relative inline-flex items-center justify-center">
+        Console Logs
+        <svg xmlns="http://www.w3.org/2000/svg" class="ml-1 h-4 w-4 text-gray-800" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10c0 4.418-3.582 8-8 8-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8zm-9 4a1 1 0 112 0 1 1 0 01-2 0zm.75-7.001a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0v-3.5z" clip-rule="evenodd"/>
+        </svg>
+        <span class="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 shadow-lg whitespace-nowrap invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 z-10">
+          This feature is experimental and may be buggy.
+        </span>
+      </button>
+    </div>
     <!-- Settings Drawer Backdrop & Panel -->
     <div id="settings-backdrop" class="fixed inset-0 bg-black/50 hidden z-40"></div>
     <div id="settings-drawer" class="fixed inset-y-0 right-0 w-96 bg-white shadow-lg transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
@@ -337,6 +354,11 @@ HTML_TEMPLATE = """
       message = message.replace(/\*(.*?)\*/g, '<em>$1</em>');
       // Convert newlines to <br>
       message = message.replace(/\\n/g, '<br>');
+      // Convert citation references [n] to clickable links
+      message = message.replace(
+        /\[(\d+)\]/g,
+        '<a href="#source-$1" class="citation-link text-blue-600 hover:underline" data-source-id="$1">[$1]</a>'
+      );
       return message;
     }
 
@@ -464,12 +486,106 @@ HTML_TEMPLATE = """
               sourcesDiv.innerHTML = '';
               data.sources.forEach((source, index) => {
                 const sourceItem = document.createElement('div');
-                sourceItem.className = 'source-item mb-2 p-2 bg-gray-50 rounded';
-                sourceItem.innerHTML = `<strong>[${index + 1}]</strong> ${source}`;
+                sourceItem.className = 'source-item mb-1 p-1 bg-gray-50 rounded text-sm';
+                sourceItem.id = `source-${index + 1}`;
+                
+                // Handle different source formats
+                let sourceTitle = '';
+                let sourceContent = '';
+                
+                if (typeof source === 'string') {
+                  // For string sources, use the first 100 chars as title and the rest as content
+                  if (source.length > 100) {
+                    sourceTitle = source.substring(0, 100) + '...';
+                    sourceContent = source;
+                  } else {
+                    sourceTitle = source;
+                    sourceContent = '';
+                  }
+                } else if (typeof source === 'object') {
+                  // Extract title and content from source object
+                  sourceTitle = source.title || source.id || `Source ${index + 1}`;
+                  sourceContent = source.content || '';
+                }
+                
+                // Truncate content if it's too long (more than 150 chars)
+                const isLongContent = sourceContent.length > 150;
+                const truncatedContent = isLongContent ? 
+                  sourceContent.substring(0, 150) + '...' : 
+                  sourceContent;
+                
+                // Create HTML with collapsible content
+                sourceItem.innerHTML = `
+                  <div>
+                    <strong>[${index + 1}]</strong> <strong>${sourceTitle}</strong>
+                    <div class="source-content">${truncatedContent}</div>
+                    ${isLongContent ? 
+                      `<div class="source-full-content hidden">${sourceContent}</div>
+                       <button class="toggle-source-btn text-blue-600 text-xs mt-1 hover:underline">Show more</button>` 
+                      : ''}
+                  </div>
+                `;
+                
+                // Add event listener for toggle button
+                if (isLongContent) {
+                  setTimeout(() => {
+                    const toggleBtn = sourceItem.querySelector('.toggle-source-btn');
+                    if (toggleBtn) {
+                      toggleBtn.addEventListener('click', function() {
+                        const truncatedEl = this.parentNode.querySelector('.source-content');
+                        const fullEl = this.parentNode.querySelector('.source-full-content');
+                        
+                        if (truncatedEl.classList.contains('hidden')) {
+                          // Show truncated, hide full
+                          truncatedEl.classList.remove('hidden');
+                          fullEl.classList.add('hidden');
+                          this.textContent = 'Show more';
+                        } else {
+                          // Show full, hide truncated
+                          truncatedEl.classList.add('hidden');
+                          fullEl.classList.remove('hidden');
+                          this.textContent = 'Show less';
+                        }
+                      });
+                    }
+                  }, 100);
+                }
                 sourcesDiv.appendChild(sourceItem);
               });
               
-              sourcesContainer.classList.remove('hidden');
+              // Add click event for citation links
+              document.querySelectorAll('.citation-link').forEach(link => {
+                  link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Expand sources panel on citation click
+                    const sourcesBody = document.getElementById('sources-body');
+                    const sourcesChevron = document.getElementById('sources-chevron');
+                    if (sourcesBody && sourcesBody.classList.contains('hidden')) {
+                      sourcesBody.classList.remove('hidden');
+                      sourcesChevron.classList.add('rotate-180');
+                    }
+                  const sourceId = this.getAttribute('data-source-id');
+                  const sourceElement = document.getElementById(`source-${sourceId}`);
+                  if (sourceElement) {
+                    sourceElement.scrollIntoView({ behavior: 'smooth' });
+                    sourceElement.classList.add('bg-yellow-100');
+                    setTimeout(() => {
+                      sourceElement.classList.remove('bg-yellow-100');
+                    }, 2000);
+                  }
+                });
+              });
+              
+                  sourcesContainer.classList.remove('hidden');
+                  const sourcesHeader = document.getElementById('sources-header');
+                  const sourcesBody = document.getElementById('sources-body');
+                  const sourcesChevron = document.getElementById('sources-chevron');
+                  if (sourcesHeader) {
+                    sourcesHeader.addEventListener('click', function() {
+                      sourcesBody.classList.toggle('hidden');
+                      sourcesChevron.classList.toggle('rotate-180');
+                    });
+                  }
             }
           }
         }
@@ -556,6 +672,28 @@ HTML_TEMPLATE = """
     window.formatMessage = formatMessage;
     window.openDrawer = openDrawer;
     window.logsContainer = consoleLogsContent;
+    // Move sources panel into chat messages for alignment
+    document.addEventListener('DOMContentLoaded', () => {
+      const msgs = document.getElementById('chat-messages');
+      const sources = document.getElementById('sources-container');
+      if (msgs && sources) {
+        msgs.appendChild(sources);
+      }
+
+      // Collapse sources when clicking outside
+      document.addEventListener('click', function(e) {
+        const container = document.getElementById('sources-container');
+        const header = document.getElementById('sources-header');
+        const body = document.getElementById('sources-body');
+        const chevron = document.getElementById('sources-chevron');
+        if (container && header && body && chevron && !body.classList.contains('hidden')) {
+          if (!container.contains(e.target) && !header.contains(e.target)) {
+            body.classList.add('hidden');
+            chevron.classList.remove('rotate-180');
+          }
+        }
+      });
+    });
   </script>
 
   <!-- Load the unified developer evaluation module -->
@@ -918,13 +1056,18 @@ def dev_eval_batch():
                     "traceback": traceback.format_exc()
                 })
         
-        # Try to get summary if llm_summary module is available
-        summary = None
+        # Evaluate prompt effectiveness for this batch
+        prompt_evaluation = None
         try:
-            from llm_summary import summarize_results
-            summary = summarize_results(results)
+            from llm_summary_compact import evaluate_prompt_effectiveness
+            prompt_evaluation = evaluate_prompt_effectiveness({
+                "query": query,
+                "system_prompt": prompt,
+                "parameters": parameters,
+                "results": results
+            })
         except ImportError:
-            logger.warning("llm_summary module not available for batch summary")
+            logger.warning("llm_summary_compact module not available for prompt evaluation")
         
         # Generate unique ID for this evaluation
         import uuid
@@ -941,7 +1084,7 @@ def dev_eval_batch():
             "parameters": parameters,
             "runs": runs,
             "results": results,
-            "summary": summary
+            "prompt_evaluation": prompt_evaluation
         }
         
         with open(json_file, 'w', encoding='utf-8') as f:
@@ -959,8 +1102,9 @@ def dev_eval_batch():
             f.write(f"- Runs: {runs}\n\n")
             if prompt:
                 f.write(f"## Custom Prompt\n\n{prompt}\n\n")
-            if summary:
-                f.write(f"## Summary\n\n{summary}\n\n")
+        # Ensure prompt evaluation and results are written inside the file context
+        if prompt_evaluation:
+            f.write(f"## Prompt Evaluation\n\n{prompt_evaluation}\n\n")
             f.write(f"## Results\n\n")
             for result in results:
                 f.write(f"### Run {result.get('run')}\n\n")
@@ -977,7 +1121,7 @@ def dev_eval_batch():
         # Return response
         return jsonify({
             "results": results,
-            "summary": summary,
+            "prompt_evaluation": prompt_evaluation,
             "download_url_json": f"/static/dev_eval_reports/batch_eval_{eval_id}.json",
             "download_url_md": f"/static/dev_eval_reports/batch_eval_{eval_id}.md",
             "markdown_report": open(md_file, 'r', encoding='utf-8').read()
@@ -988,171 +1132,6 @@ def dev_eval_batch():
         logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/dev_eval_compare', methods=['POST'])
-def dev_eval_compare():
-    """Handle compare evaluation mode requests"""
-    data = request.json
-    
-    # Extract parameters
-    query = data.get('query', '')
-    prompt = data.get('prompt', '')
-    batch1 = data.get('parameters', {})  # First batch parameters
-    batch2 = data.get('batch2', {})      # Second batch parameters
-    
-    # Log the request
-    logger.info(f"Compare evaluation request: query={query}, prompt={prompt}, batch1={batch1}, batch2={batch2}")
-    
-    try:
-        # Process batch 1
-        settings1 = {
-            "temperature": batch1.get('temperature', 0.3),
-            "top_p": batch1.get('top_p', 1.0),
-            "max_tokens": batch1.get('max_tokens', 1000)
-        }
-        
-        if prompt:
-            settings1["system_prompt"] = prompt
-            settings1["system_prompt_mode"] = "Override"
-        
-        batch1_results = []
-        assistant1 = FlaskRAGAssistant(settings=settings1)
-        
-        for i in range(batch1.get('runs', 1)):
-            try:
-                answer, sources, _, evaluation, context = assistant1.generate_rag_response(query)
-                batch1_results.append({
-                    "run": i+1,
-                    "answer": answer,
-                    "sources": sources,
-                    "evaluation": evaluation,
-                    "context": context
-                })
-            except Exception as e:
-                logger.error(f"Error on batch 1, run {i+1}: {str(e)}")
-                logger.error(traceback.format_exc())
-                batch1_results.append({
-                    "run": i+1,
-                    "error": str(e),
-                    "traceback": traceback.format_exc()
-                })
-        
-        # Process batch 2
-        settings2 = {
-            "temperature": batch2.get('temperature', 0.3),
-            "top_p": batch2.get('top_p', 1.0),
-            "max_tokens": batch2.get('max_tokens', 1000)
-        }
-        
-        if prompt:
-            settings2["system_prompt"] = prompt
-            settings2["system_prompt_mode"] = "Override"
-        
-        batch2_results = []
-        assistant2 = FlaskRAGAssistant(settings=settings2)
-        
-        for i in range(batch2.get('runs', 1)):
-            try:
-                answer, sources, _, evaluation, context = assistant2.generate_rag_response(query)
-                batch2_results.append({
-                    "run": i+1,
-                    "answer": answer,
-                    "sources": sources,
-                    "evaluation": evaluation,
-                    "context": context
-                })
-            except Exception as e:
-                logger.error(f"Error on batch 2, run {i+1}: {str(e)}")
-                logger.error(traceback.format_exc())
-                batch2_results.append({
-                    "run": i+1,
-                    "error": str(e),
-                    "traceback": traceback.format_exc()
-                })
-        
-        # Generate unique ID for this evaluation
-        import uuid
-        eval_id = str(uuid.uuid4())
-        
-        # Save results to files
-        os.makedirs('static/dev_eval_reports', exist_ok=True)
-        
-        # Save JSON report
-        json_file = f"static/dev_eval_reports/compare_eval_{eval_id}.json"
-        json_data = {
-            "query": query,
-            "prompt": prompt,
-            "batch1": {
-                "parameters": batch1,
-                "results": batch1_results
-            },
-            "batch2": {
-                "parameters": batch2,
-                "results": batch2_results
-            }
-        }
-        
-        with open(json_file, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, indent=2, ensure_ascii=False)
-        
-        # Save Markdown report
-        md_file = f"static/dev_eval_reports/compare_eval_{eval_id}.md"
-        with open(md_file, 'w', encoding='utf-8') as f:
-            f.write(f"# Compare Evaluation Report\n\n")
-            f.write(f"## Query\n\n{query}\n\n")
-            if prompt:
-                f.write(f"## Custom Prompt\n\n{prompt}\n\n")
-            
-            f.write(f"## Batch 1 Parameters\n\n")
-            f.write(f"- Temperature: {batch1.get('temperature', 0.3)}\n")
-            f.write(f"- Top P: {batch1.get('top_p', 1.0)}\n")
-            f.write(f"- Max Tokens: {batch1.get('max_tokens', 1000)}\n")
-            f.write(f"- Runs: {batch1.get('runs', 1)}\n\n")
-            
-            f.write(f"## Batch 2 Parameters\n\n")
-            f.write(f"- Temperature: {batch2.get('temperature', 0.3)}\n")
-            f.write(f"- Top P: {batch2.get('top_p', 1.0)}\n")
-            f.write(f"- Max Tokens: {batch2.get('max_tokens', 1000)}\n")
-            f.write(f"- Runs: {batch2.get('runs', 1)}\n\n")
-            
-            f.write(f"## Batch 1 Results\n\n")
-            for result in batch1_results:
-                f.write(f"### Run {result.get('run')}\n\n")
-                if 'error' in result:
-                    f.write(f"**Error:** {result.get('error')}\n\n")
-                else:
-                    f.write(f"**Answer:**\n\n{result.get('answer')}\n\n")
-                    if result.get('sources'):
-                        f.write(f"**Sources:**\n\n")
-                        for i, source in enumerate(result.get('sources', [])):
-                            f.write(f"{i+1}. {source}\n")
-                        f.write("\n")
-            
-            f.write(f"## Batch 2 Results\n\n")
-            for result in batch2_results:
-                f.write(f"### Run {result.get('run')}\n\n")
-                if 'error' in result:
-                    f.write(f"**Error:** {result.get('error')}\n\n")
-                else:
-                    f.write(f"**Answer:**\n\n{result.get('answer')}\n\n")
-                    if result.get('sources'):
-                        f.write(f"**Sources:**\n\n")
-                        for i, source in enumerate(result.get('sources', [])):
-                            f.write(f"{i+1}. {source}\n")
-                        f.write("\n")
-        
-        # Return response
-        return jsonify({
-            "batch1_results": batch1_results,
-            "batch2_results": batch2_results,
-            "download_url_json": f"/static/dev_eval_reports/compare_eval_{eval_id}.json",
-            "processEvaluation": f"/static/dev_eval_reports/compare_eval_{eval_id}.md",
-            "markdown_report": open(md_file, 'r', encoding='utf-8').read()
-        })
-    
-    except Exception as e:
-        logger.error(f"Error in compare evaluation: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
 @app.route("/api/dev_eval_compare", methods=["POST"])
 def api_dev_eval_compare():
     """
@@ -1168,14 +1147,16 @@ def api_dev_eval_compare():
             "max_tokens": ...,
             "runs": 1,
             "prompt": "..."  # Separate prompt for batch 2
-        }
+        },
+        "generate_llm_analysis": true/false  # Whether to generate LLM analysis of the comparison
     }
     Returns: {
         "batch1_results": [...],
         "batch2_results": [...],
         "download_url_json": "...",
         "download_url_md": "...",
-        "markdown_report": "..."
+        "markdown_report": "...",
+        "llm_analysis": "..." (if requested)
     }
     """
     from llm_summary import developer_evaluate_job, generate_markdown_report
@@ -1186,6 +1167,9 @@ def api_dev_eval_compare():
     
     # Log the incoming request
     logger.info(f"Compare evaluation request: query={query}, prompt={data.get('prompt', '')}, batch1={data.get('parameters', {})}, batch2={data.get('batch2', {})}")
+    
+    # Check if LLM analysis is requested
+    generate_llm_analysis = data.get("generate_llm_analysis", True)  # Default to True
     
     # Extract batch 1 parameters
     prompt1 = data.get("prompt", "")
@@ -1269,9 +1253,65 @@ def api_dev_eval_compare():
             result=f"Batch 1 (first run): {batch1_results[0]['answer'] if batch1_results else 'No results'}\n\nBatch 2 (first run): {batch2_results[0]['answer'] if batch2_results else 'No results'}"
         )
         
+        # Generate LLM analysis if requested
+        llm_analysis = None
+        if generate_llm_analysis:
+            logger.info("Generating LLM analysis for comparison")
+            # Prepare data for summarize_batch_comparison
+            comparison_data = {
+                "query": query,
+                "batch_1": {
+                    "system_prompt": prompt1,
+                    "parameters": {
+                        "temperature": temperature1,
+                        "top_p": top_p1,
+                        "max_tokens": max_tokens1,
+                        "n_runs": runs1
+                    },
+                    "results": batch1_results
+                },
+                "batch_2": {
+                    "system_prompt": prompt2,
+                    "parameters": {
+                        "temperature": temperature2,
+                        "top_p": top_p2,
+                        "max_tokens": max_tokens2,
+                        "n_runs": runs2
+                    },
+                    "results": batch2_results
+                }
+            }
+            
+            try:
+                llm_analysis = summarize_batch_comparison(comparison_data)
+                logger.info("LLM analysis generated successfully")
+            except Exception as e:
+                logger.error(f"Error generating LLM analysis: {str(e)}")
+                logger.error(traceback.format_exc())
+                llm_analysis = f"Error generating LLM analysis: {str(e)}"
+        
+        # Create a combined result for markdown report compatibility
+        combined_result = f"BATCH 1 (first run):\n{batch1_results[0]['answer'] if batch1_results else 'No results'}\n\nBATCH 2 (first run):\n{batch2_results[0]['answer'] if batch2_results else 'No results'}"
+        
         # Save to file and provide download link
         result_obj = {
             "query": query,
+            "prompt": f"Batch 1: {prompt1}\nBatch 2: {prompt2}",
+            "parameters": {
+                "batch1": {
+                    "temperature": temperature1,
+                    "top_p": top_p1,
+                    "max_tokens": max_tokens1,
+                    "runs": runs1
+                },
+                "batch2": {
+                    "temperature": temperature2,
+                    "top_p": top_p2,
+                    "max_tokens": max_tokens2,
+                    "runs": runs2
+                }
+            },
+            "result": combined_result,  # Add the combined result for markdown report compatibility
             "batch1": {
                 "prompt": prompt1,
                 "parameters": {
@@ -1292,11 +1332,9 @@ def api_dev_eval_compare():
                 },
                 "results": batch2_results
             },
-            "developer_evaluation": dev_eval
+            "developer_evaluation": dev_eval,
+            "llm_analysis": llm_analysis
         }
-        
-        # Generate markdown report
-        markdown_report = generate_markdown_report(result_obj)
         
         # Save with a unique filename
         file_id = str(uuid.uuid4())
@@ -1305,6 +1343,13 @@ def api_dev_eval_compare():
         
         file_path = os.path.join("reask_dashboard", "static", "dev_eval_reports")
         os.makedirs(file_path, exist_ok=True)
+        
+        # Generate markdown report
+        markdown_report = generate_markdown_report(result_obj)
+        
+        # Add LLM analysis to markdown report if available
+        if llm_analysis:
+            markdown_report += f"\n## LLM Analysis\n\n{llm_analysis}\n\n"
         
         # Save JSON file
         json_path = os.path.join(file_path, json_filename)
@@ -1320,14 +1365,20 @@ def api_dev_eval_compare():
         json_url = f"/static/dev_eval_reports/{json_filename}"
         md_url = f"/static/dev_eval_reports/{md_filename}"
         
-        return jsonify({
+        response_data = {
             "batch1_results": batch1_results,
             "batch2_results": batch2_results,
             "developer_evaluation": dev_eval,
             "download_url_json": json_url,
             "download_url_md": md_url,
             "markdown_report": markdown_report
-        })
+        }
+        
+        # Include LLM analysis in the response if available
+        if llm_analysis:
+            response_data["llm_analysis"] = llm_analysis
+        
+        return jsonify(response_data)
     except Exception as e:
         logger.error(f"Error in api_dev_eval_compare: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
