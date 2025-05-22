@@ -805,8 +805,8 @@
         if (!batchModeBtn) {
           batchModeBtn = document.createElement('button');
           batchModeBtn.id = 'toggle-batch-mode-btn';
-          batchModeBtn.className = 'mode-button ml-2 px-4 py-2 text-sm font-medium text-white bg-pink-600 rounded hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500';
-          batchModeBtn.textContent = 'Batch Mode';
+          batchModeBtn.className = 'mode-button ml-2 px-4 py-2 text-xs font-medium text-black border bg- rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-pink-500';
+          batchModeBtn.textContent = 'reAsk Mode';
           batchModeBtn.setAttribute('data-created-by', 'unified-dev-eval');
           modeButtonsContainer.appendChild(batchModeBtn);
         }
@@ -816,8 +816,8 @@
         if (!compareModeBtn) {
           compareModeBtn = document.createElement('button');
           compareModeBtn.id = 'toggle-compare-mode-btn';
-          compareModeBtn.className = 'mode-button ml-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500';
-          compareModeBtn.textContent = 'Compare Mode';
+          compareModeBtn.className = 'mode-button ml-2 px-4 py-2 text-xs font-medium text-black underline border bg-white rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-teal-500';
+          compareModeBtn.textContent = 'sMash Mode';
           compareModeBtn.setAttribute('data-created-by', 'unified-dev-eval');
           modeButtonsContainer.appendChild(compareModeBtn);
         }
@@ -858,7 +858,7 @@
             if (btn.id === 'toggle-developer-mode-btn') {
               btn.classList.remove('bg-green-600', 'hover:bg-green-700');
               btn.classList.add('bg-blue-600', 'hover:bg-indigo-700');
-              btn.textContent = 'Developer Mode';
+              btn.textContent = 'eVal Mode';
             } else if (btn.id === 'toggle-batch-mode-btn') {
               btn.textContent = 'Batch Mode';
             } else if (btn.id === 'toggle-compare-mode-btn') {
@@ -880,7 +880,7 @@
             if (btn.id === 'toggle-developer-mode-btn') {
               btn.classList.remove('bg-green-600', 'hover:bg-green-700');
               btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-              btn.textContent = 'Developer Mode';
+              btn.textContent = 'eVal Mode';
             } else if (btn.id === 'toggle-batch-mode-btn') {
               btn.textContent = 'Batch Mode';
             } else if (btn.id === 'toggle-compare-mode-btn') {
@@ -896,7 +896,7 @@
           if (button.id === 'toggle-developer-mode-btn') {
             button.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
             button.classList.add('bg-green-600', 'hover:bg-green-700');
-            button.textContent = 'Developer Mode: ON';
+            button.textContent = 'eVal Mode: ON';
           } else if (button.id === 'toggle-batch-mode-btn') {
             button.textContent = 'Batch Mode: ON';
           } else if (button.id === 'toggle-compare-mode-btn') {

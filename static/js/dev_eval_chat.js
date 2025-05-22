@@ -160,7 +160,7 @@ const DevEvalChat = {
       
       // Replace submitQuery with our version
       window.submitQuery = function() {
-        // If developer mode is active, use our handler
+        // If eVal mode is active, use our handler
         if (window.isDeveloperMode) {
           DevEvalChat.handleSubmit();
         } else {
@@ -173,7 +173,7 @@ const DevEvalChat = {
       console.error('window.submitQuery is not a function');
     }
     
-    // Add event listener for developer mode button
+    // Add event listener for eVal mode button
     if (this.devModeBtn) {
       // Remove any existing click listeners to avoid duplicates
       const newBtn = this.devModeBtn.cloneNode(true);
@@ -181,9 +181,9 @@ const DevEvalChat = {
       this.devModeBtn = newBtn;
       
       this.devModeBtn.addEventListener('click', function() {
-        // Toggle developer mode
+        // Toggle eVal mode
         window.isDeveloperMode = !window.isDeveloperMode;
-        console.log('Developer mode toggled to:', window.isDeveloperMode);
+        console.log('eVal mode toggled to:', window.isDeveloperMode);
         
         // Update UI based on the new mode
         if (window.isDeveloperMode) {
@@ -191,29 +191,29 @@ const DevEvalChat = {
           DevEvalChat.queryInput.placeholder = "Enter your query...";
           DevEvalChat.devModeBtn.classList.add('bg-green-600', 'hover:bg-green-700');
           DevEvalChat.devModeBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-          DevEvalChat.devModeBtn.textContent = 'Developer Mode: ON';
+          DevEvalChat.devModeBtn.textContent = 'eVal mode: ON';
           ChatHelpers.addBotMessage("Developer Evaluation mode enabled. Please enter your query for developer analysis.");
         } else {
           DevEvalChat.currentState = DevEvalChat.STATE.IDLE;
           DevEvalChat.queryInput.placeholder = "Ask me anything about our knowledge base...";
           DevEvalChat.devModeBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
           DevEvalChat.devModeBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-          DevEvalChat.devModeBtn.textContent = 'Developer Mode';
+          DevEvalChat.devModeBtn.textContent = 'eVal';
           ChatHelpers.addBotMessage("Standard chat mode enabled.");
         }
         
         console.log('Current state:', DevEvalChat.currentState);
       });
-      console.log('Added event listener to developer mode button');
+      console.log('Added event listener to eVal mode button');
     }
     
-    // Check if we're already in developer mode
+    // Check if we're already in eVal mode
     if (window.isDeveloperMode) {
       this.currentState = this.STATE.QUERY;
       if (this.queryInput) {
         this.queryInput.placeholder = "Enter your query...";
       }
-      console.log('Initialized in developer mode');
+      console.log('Initialized in eVal mode');
     }
     
     this.initialized = true;
@@ -564,10 +564,10 @@ setTimeout(function() {
   }
 }, 1000);
 
-// Add a global function to manually toggle developer mode
+// Add a global function to manually toggle eVal mode
 // This can be called from the console for debugging
 window.toggleDevMode = function() {
-  console.log('Manual toggle of developer mode');
+  console.log('Manual toggle of eVal mode');
   window.isDeveloperMode = !window.isDeveloperMode;
   console.log('isDeveloperMode set to:', window.isDeveloperMode);
   
@@ -580,7 +580,7 @@ window.toggleDevMode = function() {
     if (DevEvalChat.devModeBtn) {
       DevEvalChat.devModeBtn.classList.add('bg-green-600', 'hover:bg-green-700');
       DevEvalChat.devModeBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-      DevEvalChat.devModeBtn.textContent = 'Developer Mode: ON';
+      DevEvalChat.devModeBtn.textContent = 'eVal mode: ON';
     }
     ChatHelpers.addBotMessage("Developer Evaluation mode enabled. Please enter your query for developer analysis.");
   } else {
@@ -591,7 +591,7 @@ window.toggleDevMode = function() {
     if (DevEvalChat.devModeBtn) {
       DevEvalChat.devModeBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
       DevEvalChat.devModeBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-      DevEvalChat.devModeBtn.textContent = 'Developer Mode';
+      DevEvalChat.devModeBtn.textContent = 'eVal mode';
     }
     ChatHelpers.addBotMessage("Standard chat mode enabled.");
   }

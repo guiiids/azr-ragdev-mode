@@ -60,7 +60,7 @@ HTML_TEMPLATE = """
       padding: 1rem;
     }
     .chat-input {
-      border-top: 2px solid #e5e7eb;
+      
       padding: 1rem;
       background-color: white;
     }
@@ -141,10 +141,10 @@ HTML_TEMPLATE = """
     }
   </style>
 </head>
-<body class="bg-gray-100">
-  <div class="chat-container">
+<body class="bg-white">
+  <div class="chat-container w-[70%] mx-auto">
     <!-- Header -->
-    <div class="bg-white border-b-2 border-gray-200 px-4 py-3 flex items-center justify-between">
+    <div class="bg-white border-b-2 border-gray-100 px-4 py-3 flex items-center justify-between">
       <div class="flex items-center">
         <img class='h-10 w-auto ml-2' src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/logo-spark-1.png" alt="Logo"> 
       </div>
@@ -161,7 +161,7 @@ HTML_TEMPLATE = """
         <!-- Mode buttons will be dynamically added here by unifiedDevEval.js -->
         <div id="mode-buttons-container" class="ml-4 flex space-x-2">
           <button id="toggle-developer-mode-btn" class="mode-button px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" type="button">
-            Developer Mode
+           eVal Mode
           </button>
           <!-- Batch and Compare mode buttons will be added here -->
         </div>
@@ -214,9 +214,9 @@ HTML_TEMPLATE = """
       </div>
     </div>
     <div class="hiddenflex items-center justify-center ml-4 overflow-visible">
-      <button id="toggle-console-btn" class="group px-3 py-1 w-full bg-gray-100 hover:bg-gray-300 text-gray-800 rounded relative inline-flex items-center justify-center">
+      <button id="toggle-console-btn" class="group px-3 py-1 w-full bg-white hover:bg-gray-300 text-gray-800 rounded relative inline-flex items-center justify-center">
         Console Logs
-        <svg xmlns="http://www.w3.org/2000/svg" class="ml-1 h-4 w-4 text-gray-800" viewBox="0 0 20 20" fill="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="ml-1 h-4 w-4 text-gray-800" viewBox="0 0 20 20" fill="buttoncurrentColor">
           <path fill-rule="evenodd" d="M18 10c0 4.418-3.582 8-8 8-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8zm-9 4a1 1 0 112 0 1 1 0 01-2 0zm.75-7.001a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0v-3.5z" clip-rule="evenodd"/>
         </svg>
         <span class="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 shadow-lg whitespace-nowrap invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 z-10">
@@ -698,7 +698,7 @@ HTML_TEMPLATE = """
 
   <!-- Load the unified developer evaluation module -->
   
-<script src="/static/unifiedEval.js"></script>
+<script src="/static/js/unifiedEval.js"></script>
 
   </body>
 </html>
