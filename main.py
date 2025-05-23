@@ -44,9 +44,9 @@ HTML_TEMPLATE = """
   <title>RAG Knowledge Assistant</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style id="custom-styles">
-    p, li, a {
+  /*  p, li, a {
       font-size: 14px !important;
-    }
+    } */
     body, html {
       height: 100%;
       margin: 0;
@@ -84,7 +84,6 @@ HTML_TEMPLATE = """
     .message-bubble {
       display: inline-block;
       width: auto;
-      max-width: 80%;
       padding: 0.75rem 1rem;
       border-radius: 1rem;
     }
@@ -171,7 +170,7 @@ HTML_TEMPLATE = """
         </a>
         <!-- Mode buttons will be dynamically added here by unifiedDevEval.js -->
         <div id="mode-buttons-container" class="ml-4 flex space-x-2">
-          <button id="toggle-developer-mode-btn" class="mode-button px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" type="button">
+          <button id="toggle-developer-mode-btn" class="mode-button px-4 py-2 text-xs font-medium text-black bg-white border rounded hover:bg-blue-200 hover:underline focus:outline-none focus:underline focus:ring-red-400" type="button">
            eVal Mode
           </button>
           <!-- Batch and Compare mode buttons will be added here -->
@@ -234,7 +233,7 @@ HTML_TEMPLATE = """
         </span>
       </button>
     </div>
-            <span class="text-xs font-semibold text-green-500 text-center ml-2">{{ file_executed }}</span>
+          <!--  <span class="text-xs font-semibold text-green-500 text-center ml-2">{{ file_executed }}</span> -->
 
     <!-- Settings Drawer Backdrop & Panel -->
     <div id="settings-backdrop" class="fixed inset-0 bg-black/50 hidden z-40"></div>
@@ -394,10 +393,10 @@ HTML_TEMPLATE = """
         messageDiv.innerHTML = `
           <img class="w-8 h-8 rounded-full" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/Untitled-design-3.png" alt="AI Agent">
           <div class="flex flex-col items-end w-full max-w-[90%] leading-1.5">
-            <div class="flex items-center space-x-2 rtl:space-x-reverse pl-1 pb-1">
-              <span class="text-xs font-semibold text-gray-900 dark:text-white"><span class="mt-1 text-sm leading-tight font-medium text-indigo-500 hover:underline">Me</span></span>
+            <div class="flex items-center space-x-2 rtl:space-x-reverse pr-1 pb-1">
+              <span class="text-xs font-semibold text-gray-900 dark:text-white "><span class="mt-1 text-xs leading-tight font-medium text-indigo-500 hover:underline">ME</span></span>
             </div>
-            <div class="text-xs font-normal py-2 text-white message-bubble user-bubble">
+            <div class="text-sm font-normal py-2 text-white message-bubble user-bubble">
                ${formatMessage(message)}
             </div>
             <span class="text-xs font-normal text-gray-500 dark:text-gray-400">Delivered</span>
@@ -424,9 +423,9 @@ HTML_TEMPLATE = """
           <img class="w-8 h-8 rounded-full" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI Agent">
         <div class="flex flex-col w-auto max-w-[90%] leading-1.5">
           <div class="flex items-center space-x-2 rtl:space-x-reverse pl-1 pb-1">
-            <span class="text-xs font-semibold text-gray-900 dark:text-white">SPARK/<span class="mt-1 text-sm leading-tight font-medium text-indigo-500 hover:underline">AI</span></span>
+            <span class="text-xs font-semibold text-gray-900 dark:text-white">SPARK/<span class="mt-1 text-sm leading-tight font-strong text-indigo-500 hover:underline">AI</span></span>
           </div>
-          <div class="text-xs font-normal py-2 text-gray-900 dark:text-white message-bubble bot-bubble">
+          <div class="text-sm font-normal py-2 text-gray-900 dark:text-white message-bubble bot-bubble">
              ${formatMessage(message)}
           </div>
           <span class="text-xs font-normal text-gray-500 dark:text-gray-400">Delivered</span>
@@ -542,7 +541,7 @@ HTML_TEMPLATE = """
                 // Create HTML with collapsible content
                 sourceItem.innerHTML = `
                   <div>
-                    <strong>[${index + 1}]</strong> <strong>${sourceTitle}</strong>
+                   <p class="text-sm text-black font-bold"> [${index + 1}] ${sourceTitle}</p>
                     <div class="source-content">${truncatedContent}</div>
                     ${isLongContent ? 
                       `<div class="source-full-content hidden">${sourceContent}</div>
@@ -601,16 +600,23 @@ HTML_TEMPLATE = """
                 });
               });
               
-                  sourcesContainer.classList.remove('hidden');
-                  const sourcesHeader = document.getElementById('sources-header');
-                  const sourcesBody = document.getElementById('sources-body');
-                  const sourcesChevron = document.getElementById('sources-chevron');
-                  if (sourcesHeader) {
-                    sourcesHeader.addEventListener('click', function() {
-                      sourcesBody.classList.toggle('hidden');
-                      sourcesChevron.classList.toggle('rotate-180');
-                    });
-                  }
+              // Position sources panel below the latest bot response
+              if (sourcesContainer && sourcesDiv) {
+                const lastMsg = chatMessages.querySelector('.bot-message:last-of-type');
+                if (lastMsg) {
+                  lastMsg.insertAdjacentElement('afterend', sourcesContainer);
+                }
+                sourcesContainer.classList.remove('hidden');
+                const sourcesHeader = document.getElementById('sources-header');
+                const sourcesBody = document.getElementById('sources-body');
+                const sourcesChevron = document.getElementById('sources-chevron');
+                if (sourcesHeader) {
+                  sourcesHeader.addEventListener('click', function() {
+                    sourcesBody.classList.toggle('hidden');
+                    sourcesChevron.classList.toggle('rotate-180');
+                  });
+                }
+              }
             }
           }
         }
@@ -725,7 +731,28 @@ HTML_TEMPLATE = """
   
 <script src="/static/js/unifiedEval.js"></script>
 <script src="/static/js/custom.js"></script>
-
+<script>
+  // Event delegation for citation links and accordion toggling
+  document.getElementById('chat-messages').addEventListener('click', function(e) {
+    const link = e.target.closest('.citation-link');
+    if (link) {
+      e.preventDefault();
+      // Toggle sources panel visibility
+      const sourcesBody = document.getElementById('sources-body');
+      const sourcesChevron = document.getElementById('sources-chevron');
+      if (sourcesBody) sourcesBody.classList.toggle('hidden');
+      if (sourcesChevron) sourcesChevron.classList.toggle('rotate-180');
+      // Scroll to target source and highlight
+      const sourceId = link.getAttribute('data-source-id');
+      const sourceEl = document.getElementById(`source-${sourceId}`);
+      if (sourceEl) {
+        sourceEl.scrollIntoView({ behavior: 'smooth' });
+        sourceEl.classList.add('bg-yellow-100');
+        setTimeout(() => sourceEl.classList.remove('bg-yellow-100'), 2000);
+      }
+    }
+  });
+</script>
   </body>
 </html>
 
