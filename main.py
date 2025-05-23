@@ -24,6 +24,10 @@ stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 logger.setLevel(logging.DEBUG)
+import os
+print(os.path.abspath(__file__))
+
+file_executed = os.path.abspath(__file__)
 
 # Log startup message to verify logging is working
 logger.info("Flask RAG application starting up")
@@ -67,14 +71,19 @@ HTML_TEMPLATE = """
     .user-message {
       display: flex;
       justify-content: flex-end;
+      flex-direction: row-reverse;
       margin-bottom: 1rem;
+      width: 100%;
     }
     .bot-message {
       display: flex;
       justify-content: flex-start;
       margin-bottom: 1rem;
+      width: 100%;
     }
     .message-bubble {
+      display: inline-block;
+      width: auto;
       max-width: 80%;
       padding: 0.75rem 1rem;
       border-radius: 1rem;
@@ -83,6 +92,8 @@ HTML_TEMPLATE = """
       background-color: #3b82f6;
       color: white;
       border-bottom-right-radius: 0.25rem;
+      margin-left: 1rem;
+      align-self: flex-end;
     }
     .bot-bubble {
       background-color: #f3f4f6;
@@ -176,9 +187,9 @@ HTML_TEMPLATE = """
               </div>
       
       <!-- Bot welcome message (initially hidden) -->
-      <div id="welcome-message" class="flex items-start gap-2.5 mb-4 hidden">
+         <div id="welcome-message" class="flex items-start gap-2.5 mb-4 hidden">
         <img class="w-8 h-8 rounded-full" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI Agent">
-        <div class="flex flex-col w-full max-w-[90%] leading-1.5">
+            <div class="flex flex-col w-auto max-w-[90%] leading-1.5">
           <div class="flex items-center space-x-2 rtl:space-x-reverse">
             <span class="text-sm font-semibold text-gray-900 dark:text-white">SPARK/<span class="mt-1 text-sm leading-tight font-medium text-indigo-500 hover:underline">AI Agent</span></span>
           </div>
@@ -191,7 +202,6 @@ HTML_TEMPLATE = """
       <!-- Messages will be added here dynamically -->
     </div>
 
-    <!-- Sources Section -->
     <div id="sources-container" class="hidden">
       <div id="sources-header" class="flex items-center justify-between cursor-pointer px-4 py-2 border-t">
         <h2 class="text-sm font-semibold text-gray-700">Sources</h2>
@@ -213,7 +223,7 @@ HTML_TEMPLATE = """
         </button>
       </div>
     </div>
-    <div class="hiddenflex items-center justify-center ml-4 overflow-visible">
+    <div class="flex items-center justify-center ml-4 overflow-visible">
       <button id="toggle-console-btn" class="group px-3 py-1 w-full bg-white hover:bg-gray-300 text-gray-800 rounded relative inline-flex items-center justify-center">
         Console Logs
         <svg xmlns="http://www.w3.org/2000/svg" class="ml-1 h-4 w-4 text-gray-800" viewBox="0 0 20 20" fill="buttoncurrentColor">
@@ -224,6 +234,8 @@ HTML_TEMPLATE = """
         </span>
       </button>
     </div>
+            <span class="text-xs font-semibold text-green-500 text-center ml-2">{{ file_executed }}</span>
+
     <!-- Settings Drawer Backdrop & Panel -->
     <div id="settings-backdrop" class="fixed inset-0 bg-black/50 hidden z-40"></div>
     <div id="settings-drawer" class="fixed inset-y-0 right-0 w-96 bg-white shadow-lg transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
@@ -369,21 +381,28 @@ HTML_TEMPLATE = """
     
     // --- Chat functionality ---
     // Add user message to chat
-    function addUserMessage(message) {
-      // Hide center logo if visible
-      const centerLogo = document.getElementById('center-logo');
-      if (centerLogo && !centerLogo.classList.contains('hidden')) {
-        centerLogo.classList.add('hidden');
-      }
-      
-      // Create message element
-      const messageDiv = document.createElement('div');
-      messageDiv.className = 'user-message';
-      messageDiv.innerHTML = `
-        <div class="message-bubble user-bubble">
-          ${formatMessage(escapeHtml(message))}
-        </div>
-      `;
+      function addUserMessage(message) {
+        // Hide center logo if visible
+        const centerLogo = document.getElementById('center-logo');
+        if (centerLogo && !centerLogo.classList.contains('hidden')) {
+          centerLogo.classList.add('hidden');
+        }
+        
+        // Create message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'user-message';
+        messageDiv.innerHTML = `
+          <img class="w-8 h-8 rounded-full" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/Untitled-design-3.png" alt="AI Agent">
+          <div class="flex flex-col items-end w-full max-w-[90%] leading-1.5">
+            <div class="flex items-center space-x-2 rtl:space-x-reverse pl-1 pb-1">
+              <span class="text-xs font-semibold text-gray-900 dark:text-white"><span class="mt-1 text-sm leading-tight font-medium text-indigo-500 hover:underline">Me</span></span>
+            </div>
+            <div class="text-xs font-normal py-2 text-white message-bubble user-bubble">
+               ${formatMessage(message)}
+            </div>
+            <span class="text-xs font-normal text-gray-500 dark:text-gray-400">Delivered</span>
+          </div>
+        `;
       
       // Add to chat
       chatMessages.appendChild(messageDiv);
@@ -391,20 +410,26 @@ HTML_TEMPLATE = """
     }
     
     // Add bot message to chat
-    function addBotMessage(message) {
-      // Hide center logo if visible
-      const centerLogo = document.getElementById('center-logo');
-      if (centerLogo && !centerLogo.classList.contains('hidden')) {
-        centerLogo.classList.add('hidden');
-      }
-      
-      // Create message element
-      const messageDiv = document.createElement('div');
-      messageDiv.className = 'bot-message';
-      messageDiv.innerHTML = `
-        <img class="avatar" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI">
-        <div class="message-bubble bot-bubble">
-          ${formatMessage(message)}
+      function addBotMessage(message) {
+        // Hide center logo if visible
+        const centerLogo = document.getElementById('center-logo');
+        if (centerLogo && !centerLogo.classList.contains('hidden')) {
+          centerLogo.classList.add('hidden');
+        }
+        
+        // Create message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'bot-message';
+        messageDiv.innerHTML = `
+          <img class="w-8 h-8 rounded-full" src="https://content.tst-34.aws.agilent.com/wp-content/uploads/2025/05/dalle.png" alt="AI Agent">
+        <div class="flex flex-col w-auto max-w-[90%] leading-1.5">
+          <div class="flex items-center space-x-2 rtl:space-x-reverse pl-1 pb-1">
+            <span class="text-xs font-semibold text-gray-900 dark:text-white">SPARK/<span class="mt-1 text-sm leading-tight font-medium text-indigo-500 hover:underline">AI</span></span>
+          </div>
+          <div class="text-xs font-normal py-2 text-gray-900 dark:text-white message-bubble bot-bubble">
+             ${formatMessage(message)}
+          </div>
+          <span class="text-xs font-normal text-gray-500 dark:text-gray-400">Delivered</span>
         </div>
       `;
       
@@ -699,6 +724,7 @@ HTML_TEMPLATE = """
   <!-- Load the unified developer evaluation module -->
   
 <script src="/static/js/unifiedEval.js"></script>
+<script src="/static/js/custom.js"></script>
 
   </body>
 </html>
@@ -708,7 +734,7 @@ HTML_TEMPLATE = """
 @app.route("/", methods=["GET"])
 def index():
     logger.info("Index page accessed")
-    return render_template_string(HTML_TEMPLATE)
+    return render_template_string(HTML_TEMPLATE, file_executed=file_executed)
 
 @app.route("/api/query", methods=["POST"])
 def api_query():

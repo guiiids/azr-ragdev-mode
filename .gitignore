@@ -61,3 +61,5 @@ memory-bank/
 .ignore/
 .ignore_files
 stag.py
+app.zip
+package_dir/

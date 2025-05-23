@@ -894,13 +894,13 @@
           // Update button style
           button.classList.add('active');
           if (button.id === 'toggle-developer-mode-btn') {
-            button.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-            button.classList.add('bg-green-600', 'hover:bg-green-700');
+            button.classList.remove('bg-white', 'hover:bg-indigo-700');
+            button.classList.add('bg-blue-600', 'hover:bg-blue-200');
             button.textContent = 'eVal Mode: ON';
           } else if (button.id === 'toggle-batch-mode-btn') {
-            button.textContent = 'Batch Mode: ON';
+            button.textContent = 'reAsk Mode: ON';
           } else if (button.id === 'toggle-compare-mode-btn') {
-            button.textContent = 'Compare Mode: ON';
+            button.textContent = 'sMashe Mode: ON';
           }
           
           // Add welcome message
